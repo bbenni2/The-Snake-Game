@@ -1,0 +1,3221 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>The Snake Learning Game</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0e0e0e;--surface:#1f1f1f;--surface-2:#282828;--surface-3:#323232;--border:#3a3a3a;--border-hover:#505050;--text:#f0f0f0;--text-2:#909090;--text-3:#6a6a6a;--green:#4ade80;--red:#f87171;--blue:#60a5fa;--yellow:#fbbf24;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Inter','Segoe UI',system-ui,sans-serif;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;}
+.container{max-width:960px;margin:0 auto;padding:16px 20px 60px;}
+.section{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:12px;}
+.section h2{font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:14px;}
+.section h3{font-size:0.9rem;font-weight:600;color:var(--text-2);margin-bottom:10px;}
+label{display:block;margin-bottom:6px;font-size:0.85rem;color:var(--text-2);font-weight:500;}
+input[type=text],textarea{width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:0.95rem;outline:none;font-family:inherit;transition:border-color .15s;}
+input[type=text]:focus,textarea:focus{border-color:var(--border-hover);}
+textarea{resize:vertical;min-height:120px;font-family:'Courier New',monospace;font-size:0.88rem;}
+button{cursor:pointer;border:none;border-radius:10px;padding:10px 18px;font-size:0.9rem;font-family:inherit;font-weight:500;transition:all .15s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+.btn-primary{background:#fff;color:#000;font-weight:700;}
+.btn-primary:hover{background:#e8e8e8;}
+.btn-primary:disabled{opacity:.2;cursor:not-allowed;}
+.btn-secondary{background:var(--surface-2);color:var(--text-2);border:1px solid var(--border);}
+.btn-secondary:hover{background:var(--surface-3);color:var(--text);border-color:var(--border-hover);}
+.btn-danger{background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.2);}
+.btn-danger:hover{background:rgba(248,113,113,.18);}
+.btn-small{padding:6px 12px;font-size:0.78rem;border-radius:8px;}
+.method-cards{display:flex;gap:8px;flex-wrap:wrap;}
+.method-card{flex:1;min-width:130px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:14px 12px;cursor:pointer;text-align:center;transition:all .15s;font-family:inherit;color:var(--text);}
+.method-card:hover{border-color:var(--border-hover);}
+.method-card.selected{border-color:#fff;background:rgba(255,255,255,.04);}
+.method-card .emoji{font-size:1.6rem;display:block;margin-bottom:6px;}
+.method-card .label{font-size:0.82rem;font-weight:600;color:var(--text-2);}
+.method-card.selected .label{color:var(--text);}
+.tag{display:inline-block;background:rgba(255,255,255,.1);color:var(--text);font-size:0.6rem;padding:2px 6px;border-radius:4px;margin-left:4px;font-weight:700;vertical-align:middle;}
+.mode-card{flex:1;min-width:120px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:18px;cursor:pointer;text-align:center;transition:all .15s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;font-family:inherit;color:var(--text);}
+.mode-card:hover{border-color:var(--border-hover);}
+.mode-card.selected{border-color:#fff;}
+.mode-card .emoji{font-size:2rem;display:block;margin-bottom:6px;}
+.mode-card .label{font-size:.95rem;font-weight:700;}
+.mode-cards{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+.pong-sub{margin-top:10px;display:none;padding:10px;background:var(--surface-2);border-radius:8px;}
+.pong-sub label{display:inline-flex;align-items:center;margin-right:18px;cursor:pointer;font-size:.9rem;}
+.pong-sub input[type=radio]{margin-right:6px;}
+.play-sub{margin-top:10px;padding:10px;background:var(--surface-2);border-radius:8px;}
+.play-sub-title{font-size:.78rem;color:var(--text-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;}
+.play-sub label{display:inline-flex;align-items:center;margin-right:18px;cursor:pointer;font-size:.9rem;}
+.play-sub input[type=radio]{margin-right:6px;}
+.exit-btn{background:rgba(255,255,255,.06);color:var(--text-2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:.8rem;font-weight:600;cursor:pointer;font-family:inherit;}
+.exit-btn:hover{color:var(--text);border-color:var(--border-hover);}
+.panel{display:none;}
+.panel.active{display:block;}
+.prompt-box{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:.78rem;font-family:'Courier New',monospace;white-space:pre-wrap;max-height:260px;overflow-y:auto;margin-bottom:12px;line-height:1.5;color:var(--text-2);}
+.copy-feedback{color:var(--green);font-size:.85rem;margin-left:8px;display:none;}
+.question-item{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;position:relative;}
+.question-item .q-text{font-weight:600;font-size:.9rem;margin-bottom:6px;}
+.question-item .q-answers{font-size:.82rem;color:var(--text-2);}
+.question-item .q-answers .correct{color:var(--green);font-weight:600;}
+.question-item .q-delete{position:absolute;top:10px;right:10px;background:rgba(248,113,113,.1);color:var(--red);border:none;border-radius:6px;width:24px;height:24px;font-size:.75rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.anki-badge{display:inline-block;font-size:.6rem;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:600;vertical-align:middle;}
+.anki-neu{background:rgba(255,255,255,.08);color:var(--text-2);}
+.anki-nochmal{background:rgba(248,113,113,.15);color:var(--red);}
+.anki-schwer{background:rgba(251,191,36,.15);color:var(--yellow);}
+.anki-gut{background:rgba(74,222,128,.15);color:var(--green);}
+.anki-leicht{background:rgba(96,165,250,.15);color:var(--blue);}
+.answer-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.answer-row input[type=radio]{flex-shrink:0;}
+.answer-row input[type=text]{flex:1;}
+.format-example{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:.8rem;font-family:'Courier New',monospace;white-space:pre-wrap;margin-bottom:12px;color:var(--text-3);}
+#game-screen{display:none;text-align:center;}
+.game-container{display:inline-block;position:relative;border:1px solid var(--border);border-radius:12px;box-shadow:0 0 60px rgba(0,0,0,.8);overflow:hidden;}
+canvas#gameCanvas{display:block;margin:0 auto;background:#000;}
+.hud{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--surface);border-bottom:1px solid var(--border);font-size:.85rem;font-weight:600;}
+.hud span{display:inline-flex;align-items:center;gap:4px;}
+#quiz-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.96);z-index:10;display:none;flex-direction:column;justify-content:center;align-items:center;padding:20px;}
+#quiz-overlay.active{display:flex;}
+.quiz-box{max-width:480px;width:100%;text-align:center;}
+.quiz-question{font-size:1.1rem;font-weight:700;margin-bottom:20px;line-height:1.5;color:#fff;}
+.quiz-answers{display:flex;flex-direction:column;gap:10px;}
+.quiz-btn{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 16px 13px 44px;color:var(--text);font-size:.9rem;font-family:inherit;text-align:left;cursor:pointer;transition:all .15s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;position:relative;}
+.quiz-btn:hover{border-color:var(--border-hover);background:var(--surface-2);}
+.quiz-btn.correct-answer{border-color:var(--green);background:rgba(74,222,128,.08);color:var(--green);}
+.quiz-btn.wrong-answer{border-color:var(--red);background:rgba(248,113,113,.08);color:var(--red);}
+.quiz-btn .hotkey-badge{position:absolute;left:10px;top:50%;transform:translateY(-50%);background:var(--surface-3);color:var(--text-3);font-size:.7rem;font-weight:700;width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;}
+.quiz-feedback{margin-top:16px;font-size:.95rem;font-weight:600;}
+.quiz-feedback.correct{color:var(--green);}
+.quiz-feedback.wrong{color:var(--red);}
+.anki-buttons{display:flex;gap:8px;margin-top:14px;justify-content:center;flex-wrap:wrap;}
+.anki-btn{padding:10px 16px;border-radius:10px;color:#fff;font-weight:700;font-size:.85rem;cursor:pointer;border:none;font-family:inherit;position:relative;}
+.anki-btn .hotkey-hint{font-size:.65rem;opacity:.6;margin-right:4px;}
+.player-indicator{font-size:1rem;color:var(--yellow);font-weight:700;margin-bottom:10px;}
+#gameover-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.96);z-index:20;display:none;flex-direction:column;justify-content:center;align-items:center;padding:20px;}
+#gameover-overlay.active{display:flex;}
+.gameover-box{text-align:center;max-width:400px;width:100%;}
+.gameover-box h2{font-size:2rem;font-weight:800;color:var(--red);margin-bottom:16px;letter-spacing:-.03em;}
+.gameover-box .stat{font-size:.95rem;margin-bottom:6px;color:var(--text-2);}
+.gameover-box .stat-val{color:#fff;font-weight:700;}
+.gameover-buttons{display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap;}
+.mobile-controls{display:none;margin-top:8px;text-align:center;}
+.mobile-controls button{width:60px;height:60px;font-size:1.4rem;border-radius:12px;background:var(--surface);border:1px solid var(--border);color:var(--text-2);}
+.mobile-controls .row{display:flex;justify-content:center;gap:6px;margin-bottom:6px;}
+.scoreboard{margin-top:10px;background:var(--surface);border-radius:10px;padding:8px 14px;display:inline-block;font-size:.85rem;border:1px solid var(--border);}
+.skin-preview-container{display:flex;align-items:center;gap:14px;margin-top:10px;flex-wrap:wrap;}
+.shop-tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.shop-tab{background:var(--surface-2);border:1px solid var(--border);color:var(--text-3);padding:7px 16px;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;}
+.shop-tab:hover{border-color:var(--border-hover);color:var(--text-2);}
+.shop-tab.active{background:#fff;color:#000;border-color:#fff;}
+.shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+.shop-card{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:12px 10px 10px;cursor:pointer;text-align:center;transition:all .15s,transform .1s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;position:relative;font-family:inherit;color:var(--text);width:100%;}
+.shop-card:hover{border-color:var(--border-hover);transform:translateY(-2px);}
+.shop-card.selected{border-color:#fff;background:rgba(255,255,255,.04);}
+.shop-card canvas{display:block;width:100%;height:auto;margin:0 auto 8px;border-radius:6px;background:#000;}
+.shop-card .skin-name{font-size:.78rem;font-weight:600;color:var(--text-2);}
+.shop-card.selected .skin-name{color:#fff;}
+.shop-card .skin-tag{position:absolute;top:6px;right:6px;background:rgba(255,255,255,.1);color:#fff;font-size:.6rem;padding:2px 6px;border-radius:4px;font-weight:700;}
+.shop-card.locked{opacity:.35;cursor:not-allowed;}
+.shop-card.locked:hover{border-color:var(--border);transform:none;}
+.saved-set{display:flex;justify-content:space-between;align-items:center;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:6px;cursor:pointer;transition:border-color .15s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;width:100%;text-align:left;font-family:inherit;color:var(--text);}
+.saved-set:hover{border-color:var(--border-hover);}
+.saved-set .set-info{flex:1;}
+.saved-set .set-name{font-weight:600;font-size:.9rem;}
+.saved-set .set-meta{font-size:.75rem;color:var(--text-3);margin-top:2px;}
+.saved-set .set-actions{display:flex;gap:6px;}
+.q-list-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.q-list-header h2{margin-bottom:0;}
+.q-list-toggle{background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.78rem;color:var(--text-3);display:inline-flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap;transition:all .15s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;font-family:inherit;}
+.q-list-toggle:hover{border-color:var(--border-hover);color:var(--text-2);}
+.q-list-toggle .q-arrow{display:inline-block;transition:transform .2s;font-style:normal;}
+.question-item.q-hidden{display:none!important;}
+.q-list-more-hint{text-align:center;font-size:.75rem;color:var(--text-3);margin:4px 0 0;}
+.hidden{display:none!important;}
+#safari-banner{display:none;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.18);border-radius:12px;padding:14px 16px;margin-bottom:14px;font-size:.88rem;line-height:1.5;}
+#safari-banner strong{color:var(--green);}
+#safari-banner ol{margin:8px 0 0 18px;color:var(--text-2);}
+#safari-banner .close-banner{float:right;background:transparent;border:1px solid rgba(74,222,128,.3);color:var(--green);border-radius:6px;padding:4px 10px;font-size:.78rem;font-weight:600;cursor:pointer;margin-left:8px;font-family:inherit;}
+.online-set-item{display:flex;justify-content:space-between;align-items:center;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:6px;cursor:pointer;transition:border-color .15s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;width:100%;text-align:left;font-family:inherit;color:var(--text);}
+.online-set-item:hover{border-color:var(--border-hover);}
+.online-set-item .set-info{flex:1;}
+.online-set-item .set-name{font-weight:600;font-size:.9rem;}
+.online-set-item .set-meta{font-size:.75rem;color:var(--text-3);margin-top:2px;}
+.online-set-item.active-online{border-color:var(--green);background:rgba(74,222,128,.05);}
+.lb-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;margin-bottom:4px;background:var(--surface-2);font-size:.85rem;}
+.lb-rank{width:28px;text-align:center;font-weight:700;color:var(--text-3);flex-shrink:0;}
+.lb-name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lb-score{color:var(--green);font-weight:700;white-space:nowrap;}
+.lb-mode{font-size:.7rem;color:var(--text-3);background:var(--surface-3);padding:2px 7px;border-radius:4px;white-space:nowrap;}
+#go-leaderboard-section{border-top:1px solid var(--border);padding-top:14px;margin-top:14px;}
+#go-leaderboard-section h3{font-size:.9rem;color:var(--text-2);margin-bottom:10px;}
+#lb-nickname{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 12px;font-size:.9rem;width:160px;font-family:inherit;}
+.gs-card{transition:all .2s;}
+.gs-card:hover{transform:translateY(-3px);box-shadow:0 24px 60px rgba(0,0,0,.5);border-color:var(--border-hover)!important;}
+.gs-card.gs-selected{border-color:#fff!important;background:rgba(255,255,255,.03)!important;}
+@media(max-width:650px){
+canvas#gameCanvas{width:calc(100vw - 4px)!important;height:calc(100vw - 4px)!important;}
+.hud{font-size:.72rem;padding:5px 8px;flex-wrap:wrap;gap:3px 8px;}
+.hud .exit-btn{padding:4px 8px;font-size:.7rem;}
+.container{padding:12px 12px 40px;}
+.method-cards{flex-direction:column;}
+.mode-cards{flex-direction:column;}
+.mobile-controls{display:block;}
+#gs-cards{flex-direction:column;align-items:center;}
+.shop-grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));}
+.quiz-btn{padding:11px 12px 11px 38px;font-size:.85rem;}
+.anki-btn{padding:8px 10px;font-size:.78rem;}
+.gameover-box h2{font-size:1.6rem;}
+}
+@media(max-width:400px){
+.hud{font-size:.65rem;}
+.hud span{gap:2px;}
+}
+/* === SETUP TABS === */
+.setup-tab-nav{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:14px;gap:4px;}
+.setup-tab-btn{flex:1;padding:10px 12px;border-radius:9px;font-size:.88rem;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s;color:var(--text-3);background:transparent;touch-action:manipulation;}
+.setup-tab-btn.active{background:var(--surface-3);color:var(--text);}
+.setup-tab-btn:hover:not(.active){color:var(--text-2);}
+/* === STICKY START FOOTER === */
+.setup-sticky-footer{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 55%,transparent);z-index:50;pointer-events:none;}
+.setup-sticky-footer button{pointer-events:auto;width:100%;max-width:960px;display:block;margin:0 auto;padding:16px;font-size:1rem;font-weight:700;border-radius:12px;letter-spacing:-.01em;}
+.container{padding-bottom:90px!important;}
+</style>
+</head>
+<body>
+
+<div id="splash-screen" style="position:fixed;inset:0;background:#000;z-index:1000;display:flex;align-items:center;justify-content:center;flex-direction:column;">
+  <canvas id="splash-canvas" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+  <div style="position:relative;z-index:2;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:clamp(5rem,22vw,14rem);color:#fff;letter-spacing:0.04em;line-height:0.85;text-shadow:0 0 160px rgba(255,255,255,0.1);">THE SNAKE</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,7vw,5rem);color:rgba(255,255,255,0.35);letter-spacing:0.25em;">GAME</div>
+    <button id="splash-enter-btn" style="margin-top:48px;background:transparent;border:1px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.7);font-family:'Inter',sans-serif;font-size:0.9rem;font-weight:500;letter-spacing:0.12em;padding:13px 36px;border-radius:100px;cursor:pointer;transition:all 0.2s;">STARTEN →</button>
+  </div>
+</div>
+
+<div id="game-select-screen" style="display:none;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;">
+  <div style="text-align:center;margin-bottom:48px;">
+    <h1 style="font-size:clamp(1.8rem,5vw,2.8rem);font-weight:800;color:#f0f0f0;letter-spacing:-0.03em;margin-bottom:10px;">Wähle dein Spiel</h1>
+    <p style="color:#909090;font-size:0.95rem;">Wähle ein Spiel — du kannst später wechseln</p>
+  </div>
+  <div id="gs-cards" style="display:flex;gap:20px;flex-wrap:wrap;justify-content:center;max-width:700px;width:100%;">
+    <div class="gs-card" id="gs-snake-card" data-game="snake" style="flex:1;min-width:260px;max-width:310px;background:#161616;border:1px solid #2a2a2a;border-radius:20px;padding:36px 24px 24px;cursor:pointer;text-align:center;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:10px;">
+      <span style="font-size:3.5rem;">🐍</span>
+      <span style="font-size:1.4rem;font-weight:700;letter-spacing:-0.02em;color:#f0f0f0;">Snake</span>
+      <span style="font-size:0.85rem;color:#909090;line-height:1.5;">Steuere die Schlange, fresse das Futter und beantworte Fragen richtig</span>
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid #2a2a2a;width:100%;display:flex;flex-direction:column;gap:8px;">
+        <button class="gs-sub-btn selected-sub" data-play="classic" style="background:#1e1e1e;border:1px solid #fff;color:#fff;border-radius:10px;padding:10px 14px;font-family:'Inter',sans-serif;font-size:0.85rem;font-weight:600;cursor:pointer;text-align:left;width:100%;display:flex;flex-direction:column;gap:2px;">
+          <span>🎮 Klassisch</span><span style="font-size:0.72rem;color:#909090;font-weight:400;">3 Leben – Game Over wenn du verlierst</span>
+        </button>
+        <button class="gs-sub-btn" data-play="free" style="background:#1e1e1e;border:1px solid #2a2a2a;color:#909090;border-radius:10px;padding:10px 14px;font-family:'Inter',sans-serif;font-size:0.85rem;font-weight:600;cursor:pointer;text-align:left;width:100%;display:flex;flex-direction:column;gap:2px;">
+          <span>♾️ Free Play</span><span style="font-size:0.72rem;color:#606060;font-weight:400;">Kein Game Over – Unendlich spielen</span>
+        </button>
+      </div>
+    </div>
+    <div class="gs-card" id="gs-pong-card" data-game="pong" style="flex:1;min-width:260px;max-width:310px;background:#161616;border:1px solid #2a2a2a;border-radius:20px;padding:36px 24px 24px;cursor:pointer;text-align:center;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:10px;">
+      <span style="font-size:3.5rem;">🏓</span>
+      <span style="font-size:1.4rem;font-weight:700;letter-spacing:-0.02em;color:#f0f0f0;">Pong</span>
+      <span style="font-size:0.85rem;color:#909090;line-height:1.5;">Spiele Pong und beantworte Quizfragen für Extrapunkte</span>
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid #2a2a2a;width:100%;display:flex;flex-direction:column;gap:8px;">
+        <button class="gs-sub-btn selected-sub" data-pong="pong-solo" style="background:#1e1e1e;border:1px solid #fff;color:#fff;border-radius:10px;padding:10px 14px;font-family:'Inter',sans-serif;font-size:0.85rem;font-weight:600;cursor:pointer;text-align:left;width:100%;display:flex;flex-direction:column;gap:2px;">
+          <span>👤 Einzelspieler</span><span style="font-size:0.72rem;color:#909090;font-weight:400;">Gegen KI spielen</span>
+        </button>
+        <button class="gs-sub-btn" data-pong="pong-multi" style="background:#1e1e1e;border:1px solid #2a2a2a;color:#909090;border-radius:10px;padding:10px 14px;font-family:'Inter',sans-serif;font-size:0.85rem;font-weight:600;cursor:pointer;text-align:left;width:100%;display:flex;flex-direction:column;gap:2px;">
+          <span>👥 Multiplayer</span><span style="font-size:0.72rem;color:#606060;font-weight:400;">2 Spieler am selben Gerät</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <button id="gs-continue-btn" style="margin-top:36px;background:#fff;color:#000;font-family:'Inter',sans-serif;font-size:1rem;font-weight:700;padding:15px 48px;border-radius:12px;cursor:pointer;border:none;letter-spacing:-0.01em;transition:all 0.15s;opacity:0.4;pointer-events:none;">Weiter →</button>
+</div>
+
+<div id="setup-screen" class="container" style="display:none;">
+<div id="setup-header" style="display:flex;align-items:center;gap:14px;margin-bottom:28px;padding-top:12px;">
+  <button id="back-to-game-select-btn" style="background:#1e1e1e;border:1px solid #2a2a2a;color:#909090;border-radius:10px;padding:9px 16px;font-size:0.85rem;font-family:'Inter',sans-serif;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all 0.15s;white-space:nowrap;">← Zurück</button>
+  <div>
+    <div id="setup-game-label" style="font-size:1.3rem;font-weight:800;letter-spacing:-0.02em;color:#f0f0f0;">🐍 Snake</div>
+    <div id="setup-mode-label" style="font-size:0.8rem;color:#606060;margin-top:1px;">Klassisch · 3 Leben</div>
+  </div>
+</div>
+<div class="setup-tab-nav">
+  <button class="setup-tab-btn active" data-setup-tab="lernset">📚 Lernset</button>
+  <button class="setup-tab-btn" data-setup-tab="skin">🎨 Skin</button>
+</div>
+<div id="setup-tab-lernset">
+<div id="safari-banner">
+<button type="button" class="close-banner" id="close-banner-btn">&#x2715; Schließen</button>
+<strong>&#x1F4F1; Für beste Erfahrung: In Safari öffnen</strong>
+<ol>
+<li>Schicke dir die Datei per <strong>AirDrop, Mail oder Nachrichten</strong></li>
+<li>Öffne den Anhang → tippe auf <strong>„In Safari öffnen"</strong></li>
+</ol>
+<div style="margin-top:6px;padding:6px 8px;background:rgba(0,242,96,.08);border-radius:6px;font-size:.78rem;color:#aaa;">
+&#x2714; Funktioniert auch so – alle Knöpfe wurden für die Datein-App optimiert.
+</div>
+</div>
+
+<div id="saved-sets-section" class="section hidden">
+<h2>Gespeicherte Fragensets</h2>
+<div id="saved-sets-list"></div>
+</div>
+
+<div class="section hidden" id="online-sets-section">
+<h2>&#x1F310; Öffentliche Lernsets</h2>
+<div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;">
+<button type="button" class="btn-secondary btn-small" id="refresh-online-sets-btn">&#x1F504; Aktualisieren</button>
+<button type="button" class="btn-secondary btn-small" id="menu-lb-btn">&#x1F3C6; Leaderboard</button>
+</div>
+<div id="online-sets-list"><p style="color:#888;font-size:.85rem;text-align:center;padding:10px 0;">&#x23F3; Verbinde mit Server…</p></div>
+<div id="online-play-area" style="display:none;margin-top:12px;border-top:1px solid #333;padding-top:12px;">
+<div id="selected-set-label" style="font-size:.88rem;color:#00f260;font-weight:700;margin-bottom:10px;"></div>
+<label style="font-size:.85rem;display:block;margin-bottom:6px;">&#x1F464; Dein Name für das Leaderboard:</label>
+<input type="text" id="online-username" placeholder="z.B. Max" maxlength="30" style="margin-bottom:4px;">
+<p style="font-size:.72rem;color:#666;margin-top:4px;">Wird nach dem Spiel automatisch gespeichert.</p>
+</div>
+<div id="menu-lb-panel" style="display:none;margin-top:12px;border-top:1px solid #333;padding-top:12px;">
+<h3 style="margin-bottom:8px;">&#x1F3C6; Bestenliste – <span id="menu-lb-topic" style="color:#e0e0e0;font-weight:400;"></span></h3>
+<div id="menu-leaderboard-list" style="max-height:300px;overflow-y:auto;"></div>
+</div>
+</div>
+
+<div class="section" style="display:none;">
+<h2>0. Spielmodus wählen</h2>
+<div class="mode-cards">
+<button type="button" class="mode-card" data-mode="snake" id="mode-snake">
+<span class="emoji">&#x1F40D;</span>
+<span class="label">Snake</span>
+</button>
+<button type="button" class="mode-card" data-mode="pong" id="mode-pong">
+<span class="emoji">&#x1F3D3;</span>
+<span class="label">Pong</span>
+</button>
+</div>
+<div class="pong-sub" id="pong-sub">
+<label><input type="radio" name="pong-mode" value="pong-solo" checked> Einzelspieler</label>
+<label><input type="radio" name="pong-mode" value="pong-multi"> Multiplayer (2 Spieler)</label>
+</div>
+<div class="play-sub" id="play-sub">
+<div class="play-sub-title">Spielart</div>
+<label><input type="radio" name="play-mode" value="classic" checked> Klassisch (mit Leben)</label>
+<label><input type="radio" name="play-mode" value="free"> Free Play (ohne Leben)</label>
+</div>
+</div>
+
+<div class="section">
+<h2>Thema & Lernstoff</h2>
+<input type="text" id="topic-input" placeholder="z.B. Biologie Kapitel 3">
+</div>
+
+<div class="section">
+<h2>Fragen erstellen</h2>
+<div class="method-cards">
+<button type="button" class="method-card" data-method="ki" id="method-ki">
+<span class="emoji">&#x1F916;</span>
+<span class="label">Mit einer KI erstellen lassen <span class="tag">Empfohlen</span></span>
+</button>
+<button type="button" class="method-card" data-method="text" id="method-text">
+<span class="emoji">&#x1F4CB;</span>
+<span class="label">Fragen als Text einfügen</span>
+</button>
+<button type="button" class="method-card" data-method="manual" id="method-manual">
+<span class="emoji">&#x270F;&#xFE0F;</span>
+<span class="label">Fragen einzeln erstellen</span>
+</button>
+</div>
+
+<div id="panel-ki" class="panel">
+<h3 style="margin-top:14px;">So gehst du vor:</h3>
+<ol style="font-size:.88rem;margin:8px 0 12px 18px;line-height:1.6;">
+<li>Kopiere den Prompt unten und füge ihn in ChatGPT, Claude oder eine andere KI ein.</li>
+<li>Lade dein Lernmaterial hoch (Bilder, PDFs, Text).</li>
+<li>Die KI erstellt eine JSON-Datei. Lade diese hier hoch.</li>
+</ol>
+<div class="prompt-box" id="ki-prompt"></div>
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+<button class="btn-primary" id="copy-prompt-btn">Prompt kopieren</button>
+<span class="copy-feedback" id="copy-feedback">Kopiert!</span>
+</div>
+<div>
+<button class="btn-primary" id="import-json-btn">JSON-Datei importieren</button>
+<input type="file" id="json-file-input" accept=".json" style="display:none;">
+</div>
+</div>
+
+<div id="panel-text" class="panel">
+<h3 style="margin-top:14px;">Fragen als Text einfügen</h3>
+<div class="format-example">Beispielformat:
+
+1. Was ist die Hauptstadt von Frankreich?
+A) Berlin
+B) Paris (richtig)
+C) Madrid
+D) Rom
+
+2. Welche Farbe hat der Himmel?
+A) Grün
+B) Rot
+C) Blau (richtig)
+D) Gelb</div>
+<textarea id="text-input" placeholder="Füge deine Fragen hier ein..."></textarea>
+<button class="btn-primary" id="parse-text-btn" style="width:100%;margin-top:10px;padding:14px;font-size:1.05rem;">Fragen erkennen</button>
+</div>
+
+<div id="panel-manual" class="panel">
+<h3 style="margin-top:14px;">Frage manuell erstellen</h3>
+<input type="text" id="manual-question" placeholder="Frage eingeben..." style="margin-bottom:10px;">
+<div class="answer-row"><input type="radio" name="correct-answer" value="0" checked><label style="margin:0 6px 0 0;font-weight:600;">A)</label><input type="text" id="manual-a0" placeholder="Antwort A"></div>
+<div class="answer-row"><input type="radio" name="correct-answer" value="1"><label style="margin:0 6px 0 0;font-weight:600;">B)</label><input type="text" id="manual-a1" placeholder="Antwort B"></div>
+<div class="answer-row"><input type="radio" name="correct-answer" value="2"><label style="margin:0 6px 0 0;font-weight:600;">C)</label><input type="text" id="manual-a2" placeholder="Antwort C"></div>
+<div class="answer-row"><input type="radio" name="correct-answer" value="3"><label style="margin:0 6px 0 0;font-weight:600;">D)</label><input type="text" id="manual-a3" placeholder="Antwort D"></div>
+<button class="btn-primary" id="add-manual-btn" style="margin-top:10px;">Frage hinzufügen</button>
+</div>
+</div>
+
+<div class="section">
+<button class="btn-secondary" id="export-btn" style="width:100%;">Fragenset exportieren (JSON)</button>
+</div>
+
+<div class="section hidden" id="questions-preview-section">
+<div class="q-list-header">
+  <h2>Fragen (<span id="q-count">0</span>)</h2>
+  <button class="q-list-toggle" id="q-list-toggle-btn" style="display:none;">
+    <i class="q-arrow">&#9660;</i>
+    <span id="q-toggle-label">Alle anzeigen</span>
+  </button>
+</div>
+<div id="questions-list"></div>
+<div class="q-list-more-hint hidden" id="q-list-more-hint"></div>
+<button class="btn-danger btn-small" id="clear-all-btn" style="margin-top:8px;">Alle Fragen löschen</button>
+</div>
+</div><!-- /tab-lernset -->
+
+<div id="setup-tab-skin" style="display:none;">
+<div class="section hidden" id="skin-section">
+<h2>Snake Skin</h2>
+<p style="font-size:.85rem;color:#888;margin-bottom:8px;">Erstelle einen eigenen Snake-Skin! Lade die Vorlage herunter, bearbeite sie und lade sie wieder hoch.</p>
+<canvas id="template-canvas" width="240" height="60" style="border:1px solid #444;border-radius:4px;background:#121230;"></canvas>
+<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+<button class="btn-secondary btn-small" id="download-template-btn">Vorlage herunterladen</button>
+<button class="btn-primary btn-small" id="upload-skin-btn">Skin hochladen</button>
+<input type="file" id="skin-file-input" accept="image/*" style="display:none;">
+<button class="btn-danger btn-small hidden" id="reset-skin-btn">Skin zurücksetzen</button>
+</div>
+<div class="skin-preview-container hidden" id="skin-preview-container">
+<canvas id="skin-preview-canvas" width="240" height="60" style="border:1px solid #444;border-radius:4px;"></canvas>
+<span style="font-size:.85rem;color:#888;">Vorschau</span>
+</div>
+</div>
+
+<div class="section hidden" id="pong-skin-section">
+<h2>Pong Skin</h2>
+<p style="font-size:.85rem;color:#888;margin-bottom:8px;">Erstelle einen eigenen Pong-Skin! 3 Felder à 60×120 px: Schläger 1, Schläger 2, Ball.</p>
+<canvas id="pong-template-canvas" width="180" height="120" style="border:1px solid #444;border-radius:4px;background:#121230;"></canvas>
+<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+<button class="btn-secondary btn-small" id="download-pong-template-btn">Vorlage herunterladen</button>
+<button class="btn-primary btn-small" id="upload-pong-skin-btn">Skin hochladen</button>
+<input type="file" id="pong-skin-file-input" accept="image/*" style="display:none;">
+<button class="btn-danger btn-small hidden" id="reset-pong-skin-btn">Skin zurücksetzen</button>
+</div>
+<div class="skin-preview-container hidden" id="pong-skin-preview-container">
+<canvas id="pong-skin-preview-canvas" width="180" height="120" style="border:1px solid #444;border-radius:4px;"></canvas>
+<span style="font-size:.85rem;color:#888;">Vorschau</span>
+</div>
+</div>
+
+<div class="section" id="skin-shop-section">
+<h2>&#x1F3A8; Skin Shop</h2>
+<p style="font-size:.85rem;color:#888;margin-bottom:10px;">Wähle einen vorgefertigten Skin – funktioniert in Snake <em>und</em> Pong.</p>
+<div class="shop-tabs">
+<button class="shop-tab active" data-shop-tab="snake">&#x1F40D; Snake Skins</button>
+<button class="shop-tab" data-shop-tab="pong">&#x1F3D3; Pong Skins</button>
+</div>
+<div class="shop-grid" id="snake-shop-grid"></div>
+<div class="shop-grid hidden" id="pong-shop-grid"></div>
+</div>
+</div><!-- /tab-skin -->
+
+</div><!-- /setup-screen -->
+<div class="setup-sticky-footer" id="setup-sticky-footer" style="display:none;">
+  <button class="btn-primary" id="start-btn" disabled>Spiel starten · min. 5 Fragen</button>
+</div>
+
+<div id="game-screen">
+<div class="game-container" id="game-container">
+<div class="hud">
+<button class="exit-btn" id="exit-btn">← Menü</button>
+<span>Punkte: <span id="hud-score">0</span></span>
+<span>Level: <span id="hud-level">1</span></span>
+<span id="hud-lives-display">Leben: <span id="hud-lives">3</span></span>
+<span id="hud-pong-score" class="hidden">P1: <span id="hud-p1">0</span> | P2: <span id="hud-p2">0</span></span>
+<span id="hud-freeplay-badge" class="hidden" style="color:#00f260;font-weight:700;">Free Play</span>
+</div>
+<canvas id="gameCanvas" width="600" height="600"></canvas>
+<div id="quiz-overlay">
+<div class="quiz-box">
+<div class="player-indicator hidden" id="player-indicator"></div>
+<div class="quiz-question" id="quiz-question"></div>
+<div class="quiz-answers" id="quiz-answers"></div>
+<div class="quiz-feedback hidden" id="quiz-feedback"></div>
+<div class="anki-buttons hidden" id="anki-buttons">
+<button class="anki-btn" style="background:#8b1a1a;" data-rating="1"><span class="hotkey-hint">[1]</span> Nochmal</button>
+<button class="anki-btn" style="background:#b45309;" data-rating="2"><span class="hotkey-hint">[2]</span> Schwer</button>
+<button class="anki-btn" style="background:#15803d;" data-rating="3"><span class="hotkey-hint">[3]</span> Gut</button>
+<button class="anki-btn" style="background:#1d4ed8;" data-rating="4"><span class="hotkey-hint">[4]</span> Leicht</button>
+</div>
+</div>
+</div>
+<div id="gameover-overlay">
+<div class="gameover-box">
+<h2>Spiel vorbei!</h2>
+<div class="stat">Punkte: <span class="stat-val" id="go-score">0</span></div>
+<div class="stat">Richtige Antworten: <span class="stat-val" id="go-correct">0</span></div>
+<div class="stat">Falsche Antworten: <span class="stat-val" id="go-wrong">0</span></div>
+<div id="go-anki-stats" style="margin-top:10px;font-size:.85rem;"></div>
+
+<div id="go-leaderboard-section" style="display:none;">
+<div id="lb-submit-area">
+<div style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;margin-bottom:6px;">
+<input type="text" id="lb-nickname" placeholder="Dein Name" maxlength="30">
+<button type="button" class="btn-primary btn-small" id="lb-submit-btn">&#x1F3C6; Eintragen</button>
+</div>
+<div id="lb-submit-msg" style="font-size:.8rem;text-align:center;min-height:16px;margin-bottom:6px;"></div>
+</div>
+<h3>&#x1F3C6; Bestenliste – <span id="lb-set-topic"></span></h3>
+<div id="leaderboard-list" style="max-height:220px;overflow-y:auto;"></div>
+</div>
+
+<div class="gameover-buttons">
+<button class="btn-primary" id="go-restart">Nochmal spielen</button>
+<button class="btn-secondary" id="go-menu">Zurück zum Menü</button>
+</div>
+</div>
+</div>
+</div>
+<div class="mobile-controls" id="mobile-controls">
+<div id="snake-controls">
+<div class="row"><button id="m-up">&#9650;</button></div>
+<div class="row"><button id="m-left">&#9664;</button><button id="m-down">&#9660;</button><button id="m-right">&#9654;</button></div>
+</div>
+<div id="pong-controls" style="display:none;justify-content:space-around;width:100%;padding:4px 0;">
+<div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+<span style="font-size:.65rem;color:#00f2ff;font-weight:700;">P1</span>
+<button id="m-p1-up" style="width:70px;height:54px;font-size:1.4rem;">&#9650;</button>
+<button id="m-p1-down" style="width:70px;height:54px;font-size:1.4rem;">&#9660;</button>
+</div>
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
+<span style="font-size:.6rem;color:#888;">Oder Finger</span>
+<span style="font-size:.6rem;color:#888;">auf Canvas</span>
+<span style="font-size:.6rem;color:#888;">ziehen</span>
+</div>
+<div id="pong-p2-btns" style="display:none;flex-direction:column;align-items:center;gap:6px;">
+<span style="font-size:.65rem;color:#ff6b00;font-weight:700;">P2</span>
+<button id="m-p2-up" style="width:70px;height:54px;font-size:1.4rem;">&#9650;</button>
+<button id="m-p2-down" style="width:70px;height:54px;font-size:1.4rem;">&#9660;</button>
+</div>
+</div>
+</div>
+<div class="scoreboard" id="scoreboard"></div>
+</div>
+
+<script>
+(function(){
+
+var KI_PROMPT = "Rolle & Aufgabe:\nDu bist ein spezialisierter Assistent zur Erstellung von Lernmaterialien. Deine einzige Aufgabe ist es, hochgeladene Bilder oder Dokumente zu analysieren und daraus pr\u00e4zise Multiple-Choice-Fragen zu generieren. Die Ausgabe erfolgt ausschlie\u00dflich als downloadbare JSON-Datei.\n\nAblauf des Dialogs (Zwingend einhalten):\n\n1. Begr\u00fc\u00dfe mich kurz und bitte mich, das Material (Bilder/Dateien) hochzuladen.\n2. Frage mich: \"Wie viele Testfragen m\u00f6chtest du aus diesem Stoff erstellen?\"\n3. Warte auf meine Antwort. Erstelle erst danach die Fragen.\n\nAnalyse-Kriterien f\u00fcr das Material:\n\n- Priorisierung: Scanne das Material nach Markierungen (Textmarker, Unterstreichungen). Behandle Inhalte, die als \"Teststoff\", \"Wichtig\", \"Merke\" oder mit Ausrufezeichen markiert sind, mit h\u00f6chster Priorit\u00e4t.\n- Ausschluss: Ignoriere Inhalte, die explizit als \"Kein Teststoff\" markiert oder durchgestrichen sind.\n- Quellen: Erkenne Diagramme, Tabellen und handschriftliche Notizen als prim\u00e4re Informationsquellen.\n- Neutralit\u00e4t: Bleibe sachlich und konzentriere dich rein auf die Fakten des bereitgestellten Stoffes.\n\nVorgaben f\u00fcr das Endprodukt (JSON-Format):\nErstelle keine Textantwort im Chat, sondern generiere direkt eine Datei zum Download mit folgendem Aufbau:\n\n- topic: Das Hauptthema des Stoffes (String).\n- exported: Aktueller Zeitstempel (ISO-8601).\n- questions: Ein Array von Objekten mit:\n  - q: Der Text der Frage.\n  - answers: Eine Liste mit immer genau 4 Antwort-Optionen.\n  - correct: Index der richtigen Antwort (0, 1, 2 oder 3).\n\nWichtige Anweisung zur Ausgabe:\nSchreibe den JSON-Code nicht als Text in den Chat. Erstelle stattdessen eine Datei (z.B. fragen.json), die ich direkt herunterladen kann.\n\nBereit? Bitte beginne mit Schritt 1 des Dialogs.";
+
+document.getElementById('ki-prompt').textContent = KI_PROMPT;
+
+var gameMode = 'snake';
+var freePlayMode = false;
+var questions = [];
+var currentTopic = '';
+var customSkinImg = null;
+var customPongSkinImg = null;
+var userSnakeImg = null;
+var userPongImg = null;
+var activeSnakeSkin = 'default';
+var activePongSkin = 'default';
+var ankiData = {};
+var qListExpanded = false;
+var Q_PREVIEW_COUNT = 3;
+
+var CANVAS_SIZE = 600;
+var GRID = 30;
+var COLS = 20;
+var ROWS = 20;
+
+var snake, direction, nextDirection, food, score, level, lives, gameSpeed, gameRunning, gameLoopTimeout;
+/* smooth movement interpolation */
+var prevSnake    = [];   /* snake snapshot before last logic tick */
+var segOffset    = 0;    /* 1 = normal move (tail removed), 0 = food eaten */
+var lastTickTime = 0;    /* performance.now() at last tick */
+var tickDuration = 150;  /* mirrors gameSpeed for lerp timing */
+var snakeRenderRAF = 0;  /* requestAnimationFrame handle */
+var particles = [];
+var turnCount = 0;
+var correctCount = 0;
+var wrongCount = 0;
+var ankiSessionStats = {nochmal:0, schwer:0, gut:0, leicht:0};
+var quizActive = false;
+var sessionSeenIndices = {};
+var ankiPhase = false;
+var currentQuizQuestion = null;
+var currentQuizCorrect = false;
+var quizAnswerCallback = null;
+var quizAnswered = false;
+
+var pongBall, pongP1, pongP2, pongP1Score, pongP2Score;
+var pongBallSpeedX, pongBallSpeedY, pongRallyCount;
+var pongAITarget;
+var pongScoringPlayer = 0;
+var pongKeysDown = {};
+var pongPendingPoint = false;
+var pongBallTrail = [];
+var pongLivesP1 = 3;
+var pongLivesP2 = 3;
+
+var canvas = document.getElementById('gameCanvas');
+var ctx = canvas.getContext('2d');
+var dpr = 1;
+
+function setupCanvas(){
+    dpr = window.devicePixelRatio || 1;
+    /* Use as much screen as possible – subtract HUD (~60px) and some breathing room */
+    var sz = Math.min(window.innerWidth - 4, window.innerHeight - 80, 900);
+    CANVAS_SIZE = sz;
+    GRID = Math.round(sz / COLS);
+    canvas.style.width  = sz + 'px';
+    canvas.style.height = sz + 'px';
+    canvas.width  = Math.round(sz * dpr);
+    canvas.height = Math.round(sz * dpr);
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.scale(dpr, dpr);
+}
+
+function escapeHtml(s){
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+function addBtnHandler(btn, fn){
+    btn.addEventListener('click', fn);
+    btn.addEventListener('touchend', function(e){ e.preventDefault(); fn(e); });
+}
+
+function loadSavedSets(){
+    var sets = JSON.parse(localStorage.getItem('snake-lern-sets') || '[]');
+    var section = document.getElementById('saved-sets-section');
+    var list = document.getElementById('saved-sets-list');
+    if(sets.length === 0){ section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+    list.innerHTML = '';
+    sets.forEach(function(s, i){
+        var div = document.createElement('button');
+        div.type = 'button';
+        div.className = 'saved-set';
+        div.innerHTML = '<div class="set-info"><div class="set-name">' + escapeHtml(s.topic) + '</div><div class="set-meta">' + s.questions.length + ' Fragen' + (s.exported ? ' | ' + new Date(s.exported).toLocaleDateString('de-DE') : '') + '</div></div><div class="set-actions"><button type="button" class="btn-danger btn-small set-delete-btn">Löschen</button></div>';
+        var loadHandler = function(e){
+            if(e.target.classList.contains('set-delete-btn')) return;
+            document.getElementById('topic-input').value = s.topic;
+            currentTopic = s.topic;
+            questions = JSON.parse(JSON.stringify(s.questions));
+            currentOnlineSetId = null; /* lokales Set – kein Leaderboard */
+            document.getElementById('online-play-area').style.display = 'none';
+            renderQuestions();
+            updateStartBtn();
+        };
+        div.addEventListener('click', loadHandler);
+        var delBtn = div.querySelector('.set-delete-btn');
+        var delHandler = function(e){
+            e.stopPropagation();
+            sets.splice(i, 1);
+            localStorage.setItem('snake-lern-sets', JSON.stringify(sets));
+            loadSavedSets();
+        };
+        delBtn.addEventListener('click', delHandler);
+        delBtn.addEventListener('touchend', function(e){ e.preventDefault(); e.stopPropagation(); delHandler(e); });
+        list.appendChild(div);
+    });
+}
+
+function saveSets(){
+    if(questions.length === 0 || !currentTopic) return;
+    var sets = JSON.parse(localStorage.getItem('snake-lern-sets') || '[]');
+    var idx = -1;
+    for(var i=0;i<sets.length;i++){if(sets[i].topic===currentTopic){idx=i;break;}}
+    var entry = {topic: currentTopic, questions: questions, exported: new Date().toISOString()};
+    if(idx >= 0) sets[idx] = entry; else sets.push(entry);
+    localStorage.setItem('snake-lern-sets', JSON.stringify(sets));
+    loadSavedSets();
+}
+
+function loadAnkiData(){
+    ankiData = JSON.parse(localStorage.getItem('snake-anki-data') || '{}');
+}
+
+function saveAnkiData(){
+    localStorage.setItem('snake-anki-data', JSON.stringify(ankiData));
+}
+
+function getAnkiKey(q){
+    return currentTopic + '::' + q.q;
+}
+
+function getAnkiInfo(q){
+    var key = getAnkiKey(q);
+    return ankiData[key] || null;
+}
+
+function setAnkiRating(q, rating){
+    var key = getAnkiKey(q);
+    if(!ankiData[key]) ankiData[key] = {};
+    ankiData[key].rating = rating;
+    ankiData[key].lastSeen = turnCount;
+    ankiData[key].reviewCount = (ankiData[key].reviewCount || 0) + 1;
+    saveAnkiData();
+}
+
+function getAnkiBadgeHtml(q){
+    var info = getAnkiInfo(q);
+    if(!info || !info.rating) return '<span class="anki-badge anki-neu">Neu</span>';
+    var map = {1:['Nochmal','anki-nochmal'],2:['Schwer','anki-schwer'],3:['Gut','anki-gut'],4:['Leicht','anki-leicht']};
+    var m = map[info.rating];
+    return '<span class="anki-badge ' + m[1] + '">' + m[0] + '</span>';
+}
+
+function selectQuestion(){
+    if(questions.length === 0) return null;
+    var intervals = {1:1,2:3,3:6,4:12};
+    var basePriority = {1:80,2:60,3:30,4:5};
+    var scored = [];
+    for(var i=0;i<questions.length;i++){
+        /* Online-Modus: jede Frage nur einmal pro Runde */
+        if(currentOnlineSetId && sessionSeenIndices[i]) continue;
+        var q = questions[i];
+        var info = getAnkiInfo(q);
+        var priority;
+        if(!info || !info.rating){
+            priority = 100;
+        } else {
+            priority = basePriority[info.rating];
+            var sinceLast = turnCount - (info.lastSeen || 0);
+            if(sinceLast >= intervals[info.rating]) priority += 30;
+        }
+        priority += Math.random() * 10;
+        scored.push({q:q, idx:i, priority:priority});
+    }
+    if(scored.length === 0) return null;
+    scored.sort(function(a,b){ return b.priority - a.priority; });
+    return scored[0].q;
+}
+
+/* Mode selection */
+document.querySelectorAll('.mode-card').forEach(function(card){
+    function handler(){
+        document.querySelectorAll('.mode-card').forEach(function(c){ c.classList.remove('selected'); });
+        card.classList.add('selected');
+        var mode = card.getAttribute('data-mode');
+        if(mode === 'snake'){
+            gameMode = 'snake';
+            document.getElementById('pong-sub').style.display = 'none';
+            document.getElementById('skin-section').classList.remove('hidden');
+            document.getElementById('pong-skin-section').classList.add('hidden');
+        } else {
+            var radio = document.querySelector('input[name="pong-mode"]:checked');
+            gameMode = radio ? radio.value : 'pong-solo';
+            document.getElementById('pong-sub').style.display = 'block';
+            document.getElementById('skin-section').classList.add('hidden');
+            document.getElementById('pong-skin-section').classList.remove('hidden');
+        }
+    }
+    card.addEventListener('click', handler);
+    card.addEventListener('touchend', function(e){ e.preventDefault(); handler(); });
+});
+
+document.querySelectorAll('input[name="pong-mode"]').forEach(function(radio){
+    radio.addEventListener('change', function(){ gameMode = this.value; });
+});
+
+document.querySelectorAll('input[name="play-mode"]').forEach(function(radio){
+    radio.addEventListener('change', function(){ freePlayMode = (this.value === 'free'); });
+});
+
+/* Method cards */
+document.querySelectorAll('.method-card').forEach(function(card){
+    function handler(){
+        document.querySelectorAll('.method-card').forEach(function(c){ c.classList.remove('selected'); });
+        card.classList.add('selected');
+        document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); });
+        var method = card.getAttribute('data-method');
+        document.getElementById('panel-' + method).classList.add('active');
+    }
+    card.addEventListener('click', handler);
+    card.addEventListener('touchend', function(e){ e.preventDefault(); handler(); });
+});
+
+/* Copy prompt */
+addBtnHandler(document.getElementById('copy-prompt-btn'), function(){
+    navigator.clipboard.writeText(KI_PROMPT).then(function(){
+        var fb = document.getElementById('copy-feedback');
+        fb.style.display = 'inline';
+        setTimeout(function(){ fb.style.display = 'none'; }, 2000);
+    }).catch(function(){
+        var ta = document.createElement('textarea');
+        ta.value = KI_PROMPT;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        var fb = document.getElementById('copy-feedback');
+        fb.style.display = 'inline';
+        setTimeout(function(){ fb.style.display = 'none'; }, 2000);
+    });
+});
+
+/* JSON import */
+addBtnHandler(document.getElementById('import-json-btn'), function(){
+    document.getElementById('json-file-input').click();
+});
+
+document.getElementById('json-file-input').addEventListener('change', function(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev){
+        try {
+            var data = JSON.parse(ev.target.result);
+            if(data.topic) document.getElementById('topic-input').value = data.topic;
+            if(data.questions && Array.isArray(data.questions)){
+                data.questions.forEach(function(q){
+                    if(q.q && q.answers && q.answers.length === 4 && typeof q.correct === 'number'){
+                        questions.push({q:q.q, answers:q.answers.slice(), correct:q.correct});
+                    }
+                });
+                currentTopic = document.getElementById('topic-input').value || 'Unbenannt';
+                currentOnlineSetId = null; /* lokaler Import – kein Leaderboard */
+                document.getElementById('online-play-area').style.display = 'none';
+                renderQuestions();
+                updateStartBtn();
+                saveSets();
+            }
+        } catch(err){
+            alert('Fehler beim Lesen der JSON-Datei: ' + err.message);
+        }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+});
+
+/* Text parser */
+addBtnHandler(document.getElementById('parse-text-btn'), function(){
+    var text = document.getElementById('text-input').value.trim();
+    if(!text) return;
+    var lines = text.split('\n');
+    var parsed = [];
+    var currentQ = null;
+    var currentAnswers = [];
+    var currentCorrectIdx = -1;
+    var foundMarkerForCurrent = false;
+
+    function finalizeQuestion(){
+        if(currentQ && currentAnswers.length === 4){
+            if(!foundMarkerForCurrent) currentCorrectIdx = 0;
+            parsed.push({q:currentQ, answers:currentAnswers.slice(), correct:currentCorrectIdx});
+        }
+        currentQ = null;
+        currentAnswers = [];
+        currentCorrectIdx = -1;
+        foundMarkerForCurrent = false;
+    }
+
+    for(var i=0;i<lines.length;i++){
+        var line = lines[i].trim();
+        if(!line) continue;
+
+        var qMatch = line.match(/^\d+[\.\)]\s*(.+)/);
+        var aMatch = line.match(/^[A-Da-d][\.\)]\s*(.+)/);
+
+        if(qMatch && currentAnswers.length === 0){
+            finalizeQuestion();
+            currentQ = qMatch[1];
+        } else if(qMatch && currentAnswers.length > 0 && currentAnswers.length < 4){
+            /* This looks like a new question but previous one isn't done - skip finalizing if not 4 answers */
+            /* Could be a tricky case, treat as new question anyway */
+            finalizeQuestion();
+            currentQ = qMatch[1];
+        } else if(aMatch){
+            var ansText = aMatch[1];
+            var isCorrect = false;
+            var markers = ['(richtig)','(correct)','(korrekt)','[x]','[X]','\u2713','\u2714','\u2190'];
+            for(var m=0;m<markers.length;m++){
+                if(ansText.indexOf(markers[m]) >= 0){
+                    ansText = ansText.replace(markers[m], '').trim();
+                    isCorrect = true;
+                    foundMarkerForCurrent = true;
+                    break;
+                }
+            }
+            if(!isCorrect && (ansText.endsWith('**') || ansText.endsWith('*'))){
+                ansText = ansText.replace(/\*+$/, '').trim();
+                isCorrect = true;
+                foundMarkerForCurrent = true;
+            }
+            if(isCorrect) currentCorrectIdx = currentAnswers.length;
+            currentAnswers.push(ansText);
+        } else if(!currentQ){
+            /* treat as question text without number */
+            finalizeQuestion();
+            currentQ = line;
+        }
+    }
+    finalizeQuestion();
+
+    if(parsed.length === 0){
+        alert('Keine Fragen erkannt. Bitte überprüfe das Format.');
+        return;
+    }
+    parsed.forEach(function(q){ questions.push(q); });
+    currentTopic = document.getElementById('topic-input').value || 'Unbenannt';
+    currentOnlineSetId = null; /* manuell erstellt – kein Leaderboard */
+    document.getElementById('online-play-area').style.display = 'none';
+    renderQuestions();
+    updateStartBtn();
+    saveSets();
+    document.getElementById('text-input').value = '';
+});
+
+/* Manual add */
+addBtnHandler(document.getElementById('add-manual-btn'), function(){
+    var q = document.getElementById('manual-question').value.trim();
+    var a0 = document.getElementById('manual-a0').value.trim();
+    var a1 = document.getElementById('manual-a1').value.trim();
+    var a2 = document.getElementById('manual-a2').value.trim();
+    var a3 = document.getElementById('manual-a3').value.trim();
+    if(!q || !a0 || !a1 || !a2 || !a3){ alert('Bitte alle Felder ausfüllen.'); return; }
+    var correct = parseInt(document.querySelector('input[name="correct-answer"]:checked').value);
+    questions.push({q:q, answers:[a0,a1,a2,a3], correct:correct});
+    currentTopic = document.getElementById('topic-input').value || 'Unbenannt';
+    document.getElementById('manual-question').value = '';
+    document.getElementById('manual-a0').value = '';
+    document.getElementById('manual-a1').value = '';
+    document.getElementById('manual-a2').value = '';
+    document.getElementById('manual-a3').value = '';
+    renderQuestions();
+    updateStartBtn();
+    saveSets();
+});
+
+function applyQListCollapse(){
+    var items = document.querySelectorAll('#questions-list .question-item');
+    var total = items.length;
+    for(var i=0;i<total;i++){
+        items[i].classList.toggle('q-hidden', !qListExpanded && i >= Q_PREVIEW_COUNT);
+    }
+}
+
+function updateQToggleBtn(){
+    var btn = document.getElementById('q-list-toggle-btn');
+    var label = document.getElementById('q-toggle-label');
+    var hint = document.getElementById('q-list-more-hint');
+    var extra = questions.length - Q_PREVIEW_COUNT;
+    if(extra <= 0){
+        btn.style.display = 'none';
+        hint.classList.add('hidden');
+        return;
+    }
+    btn.style.display = '';
+    if(qListExpanded){
+        btn.querySelector('.q-arrow').innerHTML = '&#9650;';
+        label.textContent = 'Weniger anzeigen';
+        hint.classList.add('hidden');
+    } else {
+        btn.querySelector('.q-arrow').innerHTML = '&#9660;';
+        label.textContent = 'Alle anzeigen (' + extra + ' weitere)';
+        hint.classList.remove('hidden');
+        hint.textContent = '... und ' + extra + ' weitere Frage' + (extra===1?'':'n');
+    }
+}
+
+function renderQuestions(){
+    var section = document.getElementById('questions-preview-section');
+    var list = document.getElementById('questions-list');
+    document.getElementById('q-count').textContent = questions.length;
+    if(questions.length === 0){ section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+    list.innerHTML = '';
+    questions.forEach(function(q, i){
+        var div = document.createElement('div');
+        div.className = 'question-item';
+        var labels = ['A','B','C','D'];
+        var answersHtml = q.answers.map(function(a,j){
+            return '<span class="' + (j===q.correct?'correct':'') + '">' + labels[j] + ') ' + escapeHtml(a) + '</span>';
+        }).join(' &nbsp; ');
+        div.innerHTML = '<div class="q-text">' + (i+1) + '. ' + escapeHtml(q.q) + ' ' + getAnkiBadgeHtml(q) + '</div><div class="q-answers">' + answersHtml + '</div><button class="q-delete" data-idx="' + i + '">\u2715</button>';
+        var delBtn = div.querySelector('.q-delete');
+        var delHandler = function(){
+            questions.splice(i, 1);
+            renderQuestions();
+            updateStartBtn();
+            saveSets();
+        };
+        delBtn.addEventListener('click', delHandler);
+        delBtn.addEventListener('touchend', function(e){ e.preventDefault(); delHandler(); });
+        list.appendChild(div);
+    });
+    applyQListCollapse();
+    updateQToggleBtn();
+}
+
+function updateStartBtn(){
+    var btn = document.getElementById('start-btn');
+    if(questions.length >= 5){
+        btn.disabled = false;
+        btn.textContent = 'Spiel starten (' + questions.length + ' Fragen)';
+    } else {
+        btn.disabled = true;
+        btn.textContent = 'Spiel starten (min. 5 Fragen, noch ' + (5 - questions.length) + ' nötig)';
+    }
+}
+
+addBtnHandler(document.getElementById('clear-all-btn'), function(){
+    if(confirm('Alle Fragen löschen?')){
+        questions = [];
+        qListExpanded = false;
+        renderQuestions();
+        updateStartBtn();
+        saveSets();
+    }
+});
+
+addBtnHandler(document.getElementById('q-list-toggle-btn'), function(){
+    qListExpanded = !qListExpanded;
+    applyQListCollapse();
+    updateQToggleBtn();
+    if(!qListExpanded){
+        document.getElementById('questions-preview-section').scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+});
+
+addBtnHandler(document.getElementById('export-btn'), function(){
+    currentTopic = document.getElementById('topic-input').value || 'Unbenannt';
+    var data = {topic:currentTopic, exported:new Date().toISOString(), questions:questions};
+    var blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (currentTopic.replace(/[^a-zA-Z0-9äöüÄÖÜß_]/g,'_') || 'fragen') + '.json';
+    a.click();
+});
+
+/* Template canvas – format: 4×60px tiles (Kopf|Körper|Schwanz|Futter) */
+function drawTemplateCanvas(){
+    var tc = document.getElementById('template-canvas');
+    var tctx = tc.getContext('2d');
+    tctx.fillStyle = '#0a0a2e';
+    tctx.fillRect(0,0,240,60);
+
+    /* tile outlines + labels */
+    var labels = ['Kopf','Körper','Schwanz','Futter'];
+    for(var i=0;i<4;i++){
+        tctx.strokeStyle = 'rgba(255,255,255,0.18)';
+        tctx.lineWidth = 1;
+        tctx.strokeRect(i*60+0.5, 0.5, 59, 59);
+        tctx.fillStyle = 'rgba(255,255,255,0.35)';
+        tctx.font = '9px sans-serif';
+        tctx.textAlign = 'center';
+        tctx.fillText(labels[i], i*60+30, 56);
+    }
+
+    /* Kopf – bright circle + glow + eyes */
+    var hx=30, hy=28, hr=18;
+    var grd=tctx.createRadialGradient(hx,hy,0,hx,hy,hr*1.8);
+    grd.addColorStop(0,'rgba(0,242,96,0.35)'); grd.addColorStop(1,'rgba(0,242,96,0)');
+    tctx.beginPath(); tctx.arc(hx,hy,hr*1.8,0,Math.PI*2); tctx.fillStyle=grd; tctx.fill();
+    var g1=tctx.createRadialGradient(hx-3,hy-3,0,hx,hy,hr);
+    g1.addColorStop(0,'#00f260'); g1.addColorStop(1,'#008a38');
+    tctx.fillStyle=g1; tctx.beginPath(); tctx.arc(hx,hy,hr,0,Math.PI*2); tctx.fill();
+    tctx.fillStyle='#fff';
+    tctx.beginPath(); tctx.arc(36,22,4.5,0,Math.PI*2); tctx.fill();
+    tctx.beginPath(); tctx.arc(36,34,4.5,0,Math.PI*2); tctx.fill();
+    tctx.fillStyle='#111';
+    tctx.beginPath(); tctx.arc(38,22,2.5,0,Math.PI*2); tctx.fill();
+    tctx.beginPath(); tctx.arc(38,34,2.5,0,Math.PI*2); tctx.fill();
+
+    /* Körper – medium circle */
+    var bx=90, by=28, br=15;
+    var g2=tctx.createRadialGradient(bx-3,by-3,0,bx,by,br);
+    g2.addColorStop(0,'#40e060'); g2.addColorStop(1,'#0a8a3a');
+    tctx.fillStyle=g2; tctx.beginPath(); tctx.arc(bx,by,br,0,Math.PI*2); tctx.fill();
+
+    /* Schwanz – small fading circle */
+    var sx=150, sy=30, sr=10;
+    var g3=tctx.createRadialGradient(sx-2,sy-2,0,sx,sy,sr);
+    g3.addColorStop(0,'rgba(48,176,80,0.9)'); g3.addColorStop(1,'rgba(6,90,42,0.4)');
+    tctx.fillStyle=g3; tctx.beginPath(); tctx.arc(sx,sy,sr,0,Math.PI*2); tctx.fill();
+
+    /* Futter – glowing circle with '?' */
+    var fx=210, fy=28;
+    var gf=tctx.createRadialGradient(fx,fy,0,fx,fy,20);
+    gf.addColorStop(0,'rgba(255,200,50,0.5)'); gf.addColorStop(1,'rgba(255,80,50,0)');
+    tctx.beginPath(); tctx.arc(fx,fy,20,0,Math.PI*2); tctx.fillStyle=gf; tctx.fill();
+    tctx.fillStyle='#ffcc33';
+    tctx.beginPath(); tctx.arc(fx,fy,13,0,Math.PI*2); tctx.fill();
+    tctx.fillStyle='#fff';
+    tctx.font='bold 14px sans-serif'; tctx.textAlign='center'; tctx.textBaseline='middle';
+    tctx.fillText('?',fx,fy+1);
+    tctx.textBaseline='alphabetic';
+}
+drawTemplateCanvas();
+
+addBtnHandler(document.getElementById('download-template-btn'), function(){
+    var tc = document.getElementById('template-canvas');
+    var a = document.createElement('a');
+    a.href = tc.toDataURL('image/png');
+    a.download = 'snake-skin-template.png';
+    a.click();
+});
+
+addBtnHandler(document.getElementById('upload-skin-btn'), function(){
+    document.getElementById('skin-file-input').click();
+});
+
+document.getElementById('skin-file-input').addEventListener('change', function(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev){
+        var img = new Image();
+        img.onload = function(){
+            userSnakeImg = img;
+            localStorage.setItem('snake-custom-skin', ev.target.result);
+            document.getElementById('reset-skin-btn').classList.remove('hidden');
+            document.getElementById('skin-preview-container').classList.remove('hidden');
+            var pc = document.getElementById('skin-preview-canvas');
+            var pctx = pc.getContext('2d');
+            pctx.clearRect(0,0,240,60);
+            pctx.drawImage(img,0,0,240,60);
+            activeSnakeSkin = 'custom';
+            localStorage.setItem('snake-skin-active','custom');
+            applySnakeSkin();
+            refreshCustomSnakePreviewCard();
+            updateShopSelection();
+        };
+        img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+});
+
+addBtnHandler(document.getElementById('reset-skin-btn'), function(){
+    userSnakeImg = null;
+    localStorage.removeItem('snake-custom-skin');
+    document.getElementById('reset-skin-btn').classList.add('hidden');
+    document.getElementById('skin-preview-container').classList.add('hidden');
+    if(activeSnakeSkin === 'custom'){
+        activeSnakeSkin = 'default';
+        localStorage.setItem('snake-skin-active','default');
+        applySnakeSkin();
+    }
+    refreshCustomSnakePreviewCard();
+    updateShopSelection();
+});
+
+function loadCustomSkin(){
+    var data = localStorage.getItem('snake-custom-skin');
+    if(data){
+        var img = new Image();
+        img.onload = function(){
+            userSnakeImg = img;
+            document.getElementById('reset-skin-btn').classList.remove('hidden');
+            document.getElementById('skin-preview-container').classList.remove('hidden');
+            var pc = document.getElementById('skin-preview-canvas');
+            var pctx = pc.getContext('2d');
+            pctx.clearRect(0,0,240,60);
+            pctx.drawImage(img,0,0,240,60);
+            refreshCustomSnakePreviewCard();
+            if(activeSnakeSkin === 'custom') applySnakeSkin();
+        };
+        img.src = data;
+    }
+}
+
+/* ============ PONG SKIN ============ */
+
+function drawPongTemplateCanvas(){
+    var tc = document.getElementById('pong-template-canvas');
+    var tctx = tc.getContext('2d');
+    tctx.fillStyle = '#121230';
+    tctx.fillRect(0,0,180,120);
+    tctx.strokeStyle = '#444';
+    tctx.lineWidth = 1;
+    var labels = ['Schläger 1','Schläger 2','Ball'];
+    for(var i=0;i<3;i++){
+        tctx.strokeRect(i*60, 0, 60, 120);
+        tctx.fillStyle = '#888';
+        tctx.font = '10px sans-serif';
+        tctx.textAlign = 'center';
+        tctx.fillText(labels[i], i*60+30, 115);
+    }
+    /* Schläger 1 - blau */
+    var g1 = tctx.createLinearGradient(15,10,45,100);
+    g1.addColorStop(0,'#00f2ff');
+    g1.addColorStop(1,'#0088ff');
+    tctx.fillStyle = g1;
+    tctx.fillRect(15,10,30,90);
+    /* Schläger 2 - orange */
+    var g2 = tctx.createLinearGradient(75,10,105,100);
+    g2.addColorStop(0,'#ff6b00');
+    g2.addColorStop(1,'#ff3300');
+    tctx.fillStyle = g2;
+    tctx.fillRect(75,10,30,90);
+    /* Ball - weiß */
+    tctx.fillStyle = '#fff';
+    tctx.beginPath();
+    tctx.arc(150,55,22,0,Math.PI*2);
+    tctx.fill();
+}
+drawPongTemplateCanvas();
+
+addBtnHandler(document.getElementById('download-pong-template-btn'), function(){
+    var tc = document.getElementById('pong-template-canvas');
+    var a = document.createElement('a');
+    a.href = tc.toDataURL('image/png');
+    a.download = 'pong-skin-template.png';
+    a.click();
+});
+
+addBtnHandler(document.getElementById('upload-pong-skin-btn'), function(){
+    document.getElementById('pong-skin-file-input').click();
+});
+
+document.getElementById('pong-skin-file-input').addEventListener('change', function(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev){
+        var img = new Image();
+        img.onload = function(){
+            userPongImg = img;
+            localStorage.setItem('pong-custom-skin', ev.target.result);
+            document.getElementById('reset-pong-skin-btn').classList.remove('hidden');
+            document.getElementById('pong-skin-preview-container').classList.remove('hidden');
+            var pc = document.getElementById('pong-skin-preview-canvas');
+            var pctx = pc.getContext('2d');
+            pctx.clearRect(0,0,180,120);
+            pctx.drawImage(img,0,0,180,120);
+            activePongSkin = 'custom';
+            localStorage.setItem('pong-skin-active','custom');
+            applyPongSkin();
+            refreshCustomPongPreviewCard();
+            updateShopSelection();
+        };
+        img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+});
+
+addBtnHandler(document.getElementById('reset-pong-skin-btn'), function(){
+    userPongImg = null;
+    localStorage.removeItem('pong-custom-skin');
+    document.getElementById('reset-pong-skin-btn').classList.add('hidden');
+    document.getElementById('pong-skin-preview-container').classList.add('hidden');
+    if(activePongSkin === 'custom'){
+        activePongSkin = 'default';
+        localStorage.setItem('pong-skin-active','default');
+        applyPongSkin();
+    }
+    refreshCustomPongPreviewCard();
+    updateShopSelection();
+});
+
+function loadCustomPongSkin(){
+    var data = localStorage.getItem('pong-custom-skin');
+    if(data){
+        var img = new Image();
+        img.onload = function(){
+            userPongImg = img;
+            document.getElementById('reset-pong-skin-btn').classList.remove('hidden');
+            document.getElementById('pong-skin-preview-container').classList.remove('hidden');
+            var pc = document.getElementById('pong-skin-preview-canvas');
+            var pctx = pc.getContext('2d');
+            pctx.clearRect(0,0,180,120);
+            pctx.drawImage(img,0,0,180,120);
+            refreshCustomPongPreviewCard();
+            if(activePongSkin === 'custom') applyPongSkin();
+        };
+        img.src = data;
+    }
+}
+
+/* ============ SKIN SHOP ============ */
+
+function foodCircle(colors){
+    return function(cx){
+        var g = cx.createRadialGradient(206, 26, 0, 210, 30, 16);
+        g.addColorStop(0, colors[0]);
+        g.addColorStop(1, colors[1]);
+        cx.fillStyle = g;
+        cx.beginPath(); cx.arc(210, 30, 16, 0, Math.PI*2); cx.fill();
+    };
+}
+
+function foodStar(color){
+    return function(cx){
+        cx.save();
+        cx.translate(210,30);
+        cx.fillStyle = color;
+        cx.beginPath();
+        for(var i=0;i<10;i++){
+            var r = i%2===0 ? 16 : 7;
+            var a = (i/10)*Math.PI*2 - Math.PI/2;
+            var x = Math.cos(a)*r, y = Math.sin(a)*r;
+            if(i===0) cx.moveTo(x,y); else cx.lineTo(x,y);
+        }
+        cx.closePath(); cx.fill();
+        cx.restore();
+    };
+}
+
+function drawSnakeSkinGeneric(canvas, cfg){
+    var cx = canvas.getContext('2d');
+    cx.fillStyle = '#0a0a2e';
+    cx.fillRect(0,0,240,60);
+
+    /* Draw a mini snake in the same bezier-tube style used in-game */
+    cx.lineCap  = 'round';
+    cx.lineJoin = 'round';
+
+    /* Control points: a gentle S-curve across the canvas, head on the right */
+    var pts = [
+        {x:218,y:30},{x:196,y:18},{x:172,y:42},{x:148,y:18},
+        {x:122,y:38},{x:96,y:20},{x:70,y:40},{x:44,y:30},{x:20,y:30}
+    ];
+    var pmids = [];
+    for(var mi=0;mi<pts.length-1;mi++){
+        pmids.push({x:(pts[mi].x+pts[mi+1].x)*0.5, y:(pts[mi].y+pts[mi+1].y)*0.5});
+    }
+    var pnm   = pmids.length;
+    var psplit = Math.floor(pnm*0.35);
+    var pmaxW  = 13;
+
+    /* shadow */
+    cx.beginPath(); cx.moveTo(pmids[0].x,pmids[0].y);
+    for(var bi=0;bi<pnm-psplit-1;bi++)
+        cx.quadraticCurveTo(pts[bi+1].x,pts[bi+1].y,pmids[bi+1].x,pmids[bi+1].y);
+    cx.lineWidth=pmaxW+3; cx.strokeStyle='rgba(0,0,0,0.30)'; cx.stroke();
+
+    /* body */
+    cx.beginPath(); cx.moveTo(pmids[0].x,pmids[0].y);
+    for(var bi=0;bi<pnm-psplit-1;bi++)
+        cx.quadraticCurveTo(pts[bi+1].x,pts[bi+1].y,pmids[bi+1].x,pmids[bi+1].y);
+    cx.lineWidth=pmaxW; cx.strokeStyle=cfg.body[0]; cx.stroke();
+
+    /* tail taper */
+    for(var ti=pnm-psplit-1;ti<pnm-1;ti++){
+        var tf=(ti-(pnm-psplit-1))/psplit;
+        cx.beginPath();
+        cx.moveTo(pmids[ti].x,pmids[ti].y);
+        cx.quadraticCurveTo(pts[ti+1].x,pts[ti+1].y,pmids[ti+1].x,pmids[ti+1].y);
+        cx.lineWidth=Math.max(1,pmaxW*(1-tf*0.85));
+        cx.strokeStyle=hexToRgba(cfg.tail[0],1-tf*0.9);
+        cx.stroke();
+    }
+
+    /* head glow */
+    var hx=pts[0].x, hy=pts[0].y, hr=9;
+    var grd=cx.createRadialGradient(hx,hy,0,hx,hy,hr*2.6);
+    grd.addColorStop(0,hexToRgba(cfg.head[0],0.45));
+    grd.addColorStop(1,hexToRgba(cfg.head[0],0));
+    cx.beginPath(); cx.arc(hx,hy,hr*2.6,0,Math.PI*2);
+    cx.fillStyle=grd; cx.fill();
+
+    /* head solid */
+    var g1=cx.createRadialGradient(hx-2,hy-2,0,hx,hy,hr);
+    g1.addColorStop(0,cfg.head[0]); g1.addColorStop(1,cfg.head[1]);
+    cx.fillStyle=g1;
+    cx.beginPath(); cx.arc(hx,hy,hr,0,Math.PI*2); cx.fill();
+
+    /* eyes – head points left (pts go right→left) */
+    cx.fillStyle='#fff';
+    cx.beginPath(); cx.arc(hx-3,hy-4,3,0,Math.PI*2); cx.fill();
+    cx.beginPath(); cx.arc(hx-3,hy+4,3,0,Math.PI*2); cx.fill();
+    cx.fillStyle='#111';
+    cx.beginPath(); cx.arc(hx-5,hy-4,1.5,0,Math.PI*2); cx.fill();
+    cx.beginPath(); cx.arc(hx-5,hy+4,1.5,0,Math.PI*2); cx.fill();
+
+    /* food item (top-right corner) */
+    cfg.drawFood(cx);
+}
+
+function drawPongSkinGeneric(canvas, cfg){
+    var cx = canvas.getContext('2d');
+    cx.fillStyle = '#121230';
+    cx.fillRect(0,0,180,120);
+    /* paddle 1 */
+    var g1 = cx.createLinearGradient(15,10,45,110);
+    g1.addColorStop(0, cfg.p1[0]);
+    g1.addColorStop(1, cfg.p1[1]);
+    cx.fillStyle = g1;
+    cx.beginPath();
+    if(cx.roundRect) cx.roundRect(15,10,30,100,4); else cx.rect(15,10,30,100);
+    cx.fill();
+    /* paddle 2 */
+    var g2 = cx.createLinearGradient(75,10,105,110);
+    g2.addColorStop(0, cfg.p2[0]);
+    g2.addColorStop(1, cfg.p2[1]);
+    cx.fillStyle = g2;
+    cx.beginPath();
+    if(cx.roundRect) cx.roundRect(75,10,30,100,4); else cx.rect(75,10,30,100);
+    cx.fill();
+    /* ball */
+    var g3 = cx.createRadialGradient(145, 54, 2, 150, 60, 22);
+    g3.addColorStop(0, cfg.ball[0]);
+    g3.addColorStop(1, cfg.ball[1]);
+    cx.fillStyle = g3;
+    cx.beginPath(); cx.arc(150, 60, 22, 0, Math.PI*2); cx.fill();
+}
+
+var SNAKE_SKINS = [
+    {id:'default',  name:'Klassisch',   cfg:{head:['#5fff5f','#00a000'], body:['#40e060','#008030'], tail:['#30b050','#006020'], drawFood: foodCircle(['#ffdd33','#ff4444'])}},
+    {id:'neon',     name:'Neon Cyan',   cfg:{head:['#00f2ff','#0033aa'], body:['#00c8e0','#002288'], tail:['#0099c0','#001166'], drawFood: foodCircle(['#ff00ff','#6600aa'])}},
+    {id:'fire',     name:'Feuer',       cfg:{head:['#ffff66','#ff6600'], body:['#ff9900','#ff2200'], tail:['#ff3300','#880000'], drawFood: foodCircle(['#66e0ff','#0066aa'])}},
+    {id:'gold',     name:'Gold',        cfg:{head:['#fff6a0','#ffaa00'], body:['#ffdd60','#cc8800'], tail:['#d4a840','#885500'], drawFood: foodCircle(['#ff66cc','#aa0066'])}},
+    {id:'galaxy',   name:'Galaxie',     cfg:{head:['#f0a0ff','#6000a0'], body:['#c060e0','#400080'], tail:['#8040b0','#200060'], drawFood: foodStar('#ffee66')}},
+    {id:'toxic',    name:'Toxisch',     cfg:{head:['#d0ff00','#558800'], body:['#a0e000','#336600'], tail:['#70a800','#224400'], drawFood: foodCircle(['#ff66ff','#660066'])}},
+    {id:'candy',    name:'Candy',       cfg:{head:['#ff9fd1','#ff4fa0'], body:['#ffb3e0','#ff66b0'], tail:['#ffc8e6','#ff88c0'], drawFood: foodCircle(['#66ffe0','#008a70'])}},
+    {id:'ice',      name:'Eis',         cfg:{head:['#e8faff','#80c8ff'], body:['#c0e8ff','#4098e0'], tail:['#90c8e8','#2070b0'], drawFood: foodCircle(['#ff6666','#aa0000'])}}
+];
+
+var PONG_SKINS = [
+    {id:'default',    name:'Klassisch',     cfg:{p1:['#00f2ff','#0088ff'], p2:['#ff6b00','#ff3300'], ball:['#ffffff','#888888']}},
+    {id:'neon',       name:'Neon',          cfg:{p1:['#ff00ff','#880088'], p2:['#00ffcc','#008866'], ball:['#ffff00','#cc8800']}},
+    {id:'retro',      name:'Retro Arcade',  cfg:{p1:['#00ff66','#006622'], p2:['#ffaa00','#884400'], ball:['#e0e0e0','#606060']}},
+    {id:'fireice',    name:'Feuer & Eis',   cfg:{p1:['#ff5544','#880000'], p2:['#66ccff','#003388'], ball:['#ffffff','#aaaaaa']}},
+    {id:'goldsilver', name:'Gold & Silber', cfg:{p1:['#ffee66','#cc8800'], p2:['#f0f0f0','#808080'], ball:['#ffffff','#cccccc']}},
+    {id:'galaxy',     name:'Galaxie',       cfg:{p1:['#c060ff','#400080'], p2:['#ff66cc','#660044'], ball:['#ffee66','#ff8800']}},
+    {id:'toxic',      name:'Toxisch',       cfg:{p1:['#d0ff00','#558800'], p2:['#00ffaa','#007755'], ball:['#ff66ff','#660066']}},
+    {id:'candy',      name:'Candy',         cfg:{p1:['#ff9fd1','#cc2f80'], p2:['#a0f0ff','#2090c8'], ball:['#ffffff','#ffcce0']}}
+];
+
+function applySnakeSkin(){
+    if(activeSnakeSkin === 'default'){
+        customSkinImg = null;
+        return;
+    }
+    if(activeSnakeSkin === 'custom'){
+        customSkinImg = userSnakeImg;
+        return;
+    }
+    for(var i=0;i<SNAKE_SKINS.length;i++){
+        if(SNAKE_SKINS[i].id === activeSnakeSkin){
+            customSkinImg = SNAKE_SKINS[i].canvas || null;
+            return;
+        }
+    }
+    customSkinImg = null;
+}
+
+function applyPongSkin(){
+    if(activePongSkin === 'default'){
+        customPongSkinImg = null;
+        return;
+    }
+    if(activePongSkin === 'custom'){
+        customPongSkinImg = userPongImg;
+        return;
+    }
+    for(var i=0;i<PONG_SKINS.length;i++){
+        if(PONG_SKINS[i].id === activePongSkin){
+            customPongSkinImg = PONG_SKINS[i].canvas || null;
+            return;
+        }
+    }
+    customPongSkinImg = null;
+}
+
+function createShopCard(opts){
+    var card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'shop-card';
+    card.setAttribute('data-skin-id', opts.id);
+    var c = document.createElement('canvas');
+    c.width = opts.cw; c.height = opts.ch;
+    card.appendChild(c);
+    var name = document.createElement('div');
+    name.className = 'skin-name';
+    name.textContent = opts.name;
+    card.appendChild(name);
+    if(opts.tag){
+        var tag = document.createElement('span');
+        tag.className = 'skin-tag';
+        tag.textContent = opts.tag;
+        card.appendChild(tag);
+    }
+    if(opts.draw) opts.draw(c);
+    addBtnHandler(card, opts.onSelect);
+    return {card:card, canvas:c};
+}
+
+function refreshCustomSnakePreviewCard(){
+    var card = document.querySelector('#snake-shop-grid .shop-card[data-skin-id="custom"]');
+    if(!card) return;
+    var canvas = card.querySelector('canvas');
+    var cx = canvas.getContext('2d');
+    cx.fillStyle = '#121230'; cx.fillRect(0,0,240,60);
+    if(userSnakeImg){
+        card.classList.remove('locked');
+        cx.drawImage(userSnakeImg, 0, 0, 240, 60);
+    } else {
+        card.classList.add('locked');
+        cx.fillStyle = '#666';
+        cx.font = 'bold 11px sans-serif';
+        cx.textAlign = 'center';
+        cx.fillText('Kein Upload', 120, 28);
+        cx.fillStyle = '#444';
+        cx.font = '9px sans-serif';
+        cx.fillText('(Vorlage nutzen)', 120, 42);
+    }
+}
+
+function refreshCustomPongPreviewCard(){
+    var card = document.querySelector('#pong-shop-grid .shop-card[data-skin-id="custom"]');
+    if(!card) return;
+    var canvas = card.querySelector('canvas');
+    var cx = canvas.getContext('2d');
+    cx.fillStyle = '#121230'; cx.fillRect(0,0,180,120);
+    if(userPongImg){
+        card.classList.remove('locked');
+        cx.drawImage(userPongImg, 0, 0, 180, 120);
+    } else {
+        card.classList.add('locked');
+        cx.fillStyle = '#666';
+        cx.font = 'bold 11px sans-serif';
+        cx.textAlign = 'center';
+        cx.fillText('Kein Upload', 90, 58);
+        cx.fillStyle = '#444';
+        cx.font = '9px sans-serif';
+        cx.fillText('(Vorlage nutzen)', 90, 74);
+    }
+}
+
+function buildSkinShop(){
+    var sg = document.getElementById('snake-shop-grid');
+    var pg = document.getElementById('pong-shop-grid');
+    sg.innerHTML = '';
+    pg.innerHTML = '';
+
+    SNAKE_SKINS.forEach(function(skin){
+        var res = createShopCard({
+            id: skin.id,
+            name: skin.name,
+            cw: 240, ch: 60,
+            draw: function(c){ drawSnakeSkinGeneric(c, skin.cfg); },
+            onSelect: function(){
+                activeSnakeSkin = skin.id;
+                localStorage.setItem('snake-skin-active', skin.id);
+                applySnakeSkin();
+                updateShopSelection();
+            }
+        });
+        skin.canvas = res.canvas;
+        sg.appendChild(res.card);
+    });
+    /* custom snake card */
+    var csr = createShopCard({
+        id: 'custom',
+        name: 'Eigener Skin',
+        cw: 240, ch: 60,
+        tag: 'Upload',
+        onSelect: function(){
+            if(!userSnakeImg){
+                alert('Lade zuerst im Bereich "Snake Skin" oben einen eigenen Skin hoch.');
+                return;
+            }
+            activeSnakeSkin = 'custom';
+            localStorage.setItem('snake-skin-active','custom');
+            applySnakeSkin();
+            updateShopSelection();
+        }
+    });
+    sg.appendChild(csr.card);
+    refreshCustomSnakePreviewCard();
+
+    PONG_SKINS.forEach(function(skin){
+        var res = createShopCard({
+            id: skin.id,
+            name: skin.name,
+            cw: 180, ch: 120,
+            draw: function(c){ drawPongSkinGeneric(c, skin.cfg); },
+            onSelect: function(){
+                activePongSkin = skin.id;
+                localStorage.setItem('pong-skin-active', skin.id);
+                applyPongSkin();
+                updateShopSelection();
+            }
+        });
+        skin.canvas = res.canvas;
+        pg.appendChild(res.card);
+    });
+    /* custom pong card */
+    var cpr = createShopCard({
+        id: 'custom',
+        name: 'Eigener Skin',
+        cw: 180, ch: 120,
+        tag: 'Upload',
+        onSelect: function(){
+            if(!userPongImg){
+                alert('Lade zuerst im Bereich "Pong Skin" oben einen eigenen Skin hoch.');
+                return;
+            }
+            activePongSkin = 'custom';
+            localStorage.setItem('pong-skin-active','custom');
+            applyPongSkin();
+            updateShopSelection();
+        }
+    });
+    pg.appendChild(cpr.card);
+    refreshCustomPongPreviewCard();
+}
+
+function updateShopSelection(){
+    var snakeCards = document.querySelectorAll('#snake-shop-grid .shop-card');
+    for(var i=0;i<snakeCards.length;i++){
+        snakeCards[i].classList.toggle('selected', snakeCards[i].getAttribute('data-skin-id') === activeSnakeSkin);
+    }
+    var pongCards = document.querySelectorAll('#pong-shop-grid .shop-card');
+    for(var j=0;j<pongCards.length;j++){
+        pongCards[j].classList.toggle('selected', pongCards[j].getAttribute('data-skin-id') === activePongSkin);
+    }
+}
+
+/* shop tab switching */
+document.querySelectorAll('.shop-tab').forEach(function(tab){
+    addBtnHandler(tab, function(){
+        document.querySelectorAll('.shop-tab').forEach(function(t){ t.classList.remove('active'); });
+        tab.classList.add('active');
+        var which = tab.getAttribute('data-shop-tab');
+        document.getElementById('snake-shop-grid').classList.toggle('hidden', which !== 'snake');
+        document.getElementById('pong-shop-grid').classList.toggle('hidden', which !== 'pong');
+    });
+});
+
+/* Start game */
+addBtnHandler(document.getElementById('start-btn'), function(){
+    currentTopic = document.getElementById('topic-input').value || 'Unbenannt';
+    saveSets();
+    loadAnkiData();
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('game-screen').style.display = 'block';
+    setupCanvas();
+    score = 0;
+    level = 1;
+    lives = 3;
+    turnCount = 0;
+    correctCount = 0;
+    wrongCount = 0;
+    ankiSessionStats = {nochmal:0, schwer:0, gut:0, leicht:0};
+    sessionSeenIndices = {};
+    quizActive = false;
+    ankiPhase = false;
+    document.getElementById('gameover-overlay').classList.remove('active');
+    document.getElementById('quiz-overlay').classList.remove('active');
+    var freeBadge = document.getElementById('hud-freeplay-badge');
+    if(freePlayMode) freeBadge.classList.remove('hidden');
+    else freeBadge.classList.add('hidden');
+
+    window.scrollTo(0, 0);
+
+    if(gameMode === 'snake'){
+        if(freePlayMode) document.getElementById('hud-lives-display').classList.add('hidden');
+        else document.getElementById('hud-lives-display').classList.remove('hidden');
+        document.getElementById('hud-pong-score').classList.add('hidden');
+        initSnake();
+        setupMobileControls();
+    } else {
+        document.getElementById('hud-pong-score').classList.remove('hidden');
+        if(gameMode === 'pong-multi' || freePlayMode){
+            document.getElementById('hud-lives-display').classList.add('hidden');
+        } else {
+            document.getElementById('hud-lives-display').classList.remove('hidden');
+        }
+        initPong();
+        setupMobileControls();
+    }
+});
+
+addBtnHandler(document.getElementById('exit-btn'), function(){
+    if(!confirm('Zurück zum Menü? Dein aktueller Spielstand geht verloren.')) return;
+    gameRunning = false;
+    cancelAnimationFrame(snakeRenderRAF);
+    clearTimeout(gameLoopTimeout);
+    document.getElementById('quiz-overlay').classList.remove('active');
+    document.getElementById('gameover-overlay').classList.remove('active');
+    quizActive = false;
+    ankiPhase = false;
+    quizAnswered = false;
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'block';
+    renderQuestions();
+});
+
+/* ============ SNAKE GAME ============ */
+
+function snakeRenderLoopFn(){
+    if(!gameRunning) return;
+    drawSnakeFrame();
+    snakeRenderRAF = requestAnimationFrame(snakeRenderLoopFn);
+}
+
+function initSnake(){
+    snake = [];
+    for(var i=2;i>=0;i--) snake.push({x:10-i, y:10});
+    direction = {x:1, y:0};
+    nextDirection = {x:1, y:0};
+    prevSnake = []; lastTickTime = 0;
+    placeFood();
+    gameSpeed = 150;
+    gameRunning = true;
+    particles = [];
+    updateHud();
+    cancelAnimationFrame(snakeRenderRAF);
+    snakeRenderRAF = requestAnimationFrame(snakeRenderLoopFn);
+    snakeLoop();
+}
+
+function placeFood(){
+    var attempts = 0;
+    do {
+        food = {x:Math.floor(Math.random()*COLS), y:Math.floor(Math.random()*ROWS)};
+        attempts++;
+        var onSnake = false;
+        for(var i=0;i<snake.length;i++){
+            if(snake[i].x===food.x && snake[i].y===food.y){ onSnake=true; break; }
+        }
+    } while(onSnake && attempts < 200);
+}
+
+function snakeLoop(){
+    if(!gameRunning) return;
+    if(quizActive){
+        /* render loop keeps drawing — just poll until quiz is done */
+        gameLoopTimeout = setTimeout(snakeLoop, 100);
+        return;
+    }
+    direction = {x:nextDirection.x, y:nextDirection.y};
+    var head = {
+        x:(snake[snake.length-1].x + direction.x + COLS) % COLS,
+        y:(snake[snake.length-1].y + direction.y + ROWS) % ROWS
+    };
+
+    var selfCollision = false;
+    for(var i=0;i<snake.length;i++){
+        if(snake[i].x===head.x && snake[i].y===head.y){ selfCollision=true; break; }
+    }
+    if(selfCollision){
+        if(!freePlayMode) lives--;
+        updateHud();
+        if(!freePlayMode && lives <= 0){ gameOver(); return; }
+        snake = [];
+        for(var j=2;j>=0;j--) snake.push({x:10-j, y:10});
+        direction = {x:1, y:0};
+        nextDirection = {x:1, y:0};
+        prevSnake = []; lastTickTime = 0; /* reset interpolation */
+        placeFood();
+        gameLoopTimeout = setTimeout(snakeLoop, gameSpeed);
+        return;
+    }
+
+    /* snapshot BEFORE modifying snake – used for smooth interpolation */
+    prevSnake    = snake.map(function(s){ return {x:s.x, y:s.y}; });
+    lastTickTime = performance.now();
+    tickDuration = gameSpeed;
+
+    snake.push(head);
+
+    if(head.x===food.x && head.y===food.y){
+        segOffset = 0; /* grew: new[i] came from prev[i] */
+        for(var p=0;p<8;p++){
+            particles.push({
+                x:food.x*GRID+GRID/2, y:food.y*GRID+GRID/2,
+                vx:(Math.random()-0.5)*3, vy:(Math.random()-0.5)*3,
+                life:45,
+                color:'hsl('+Math.floor(Math.random()*360)+',100%,60%)'
+            });
+        }
+        showQuiz(function(correct){
+            if(correct){
+                score += 10;
+                if(score > 0 && score % 50 === 0){
+                    level++;
+                    gameSpeed = Math.max(60, 150 - (level-1)*12);
+                }
+            } else {
+                if(!freePlayMode){
+                    lives--;
+                    if(lives <= 0){ gameOver(); return; }
+                    if(snake.length > 3) snake.pop();
+                }
+            }
+            placeFood();
+            updateHud();
+        });
+    } else {
+        snake.shift();
+        segOffset = 1; /* moved: new[i] came from prev[i+1] */
+    }
+    stepParticles();
+    gameLoopTimeout = setTimeout(snakeLoop, gameSpeed);
+}
+
+function drawSnakeFrame(){
+    ctx.fillStyle = '#0a0a2e';
+    ctx.fillRect(0,0,CANVAS_SIZE,CANVAS_SIZE);
+    var grad = ctx.createLinearGradient(0,0,CANVAS_SIZE,CANVAS_SIZE);
+    grad.addColorStop(0,'#0a0a2e');
+    grad.addColorStop(1,'#0f1040');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,CANVAS_SIZE,CANVAS_SIZE);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    for(var gx=0;gx<COLS;gx++){
+        for(var gy=0;gy<ROWS;gy++){
+            ctx.beginPath();
+            ctx.arc(gx*GRID+GRID/2, gy*GRID+GRID/2, 1.5, 0, Math.PI*2);
+            ctx.fill();
+        }
+    }
+
+    /* Custom uploaded image skin → tile renderer; all others → splash-style */
+    if(customSkinImg && activeSnakeSkin === 'custom'){
+        drawSnakeWithSkin();
+    } else {
+        drawSnakeDefault();
+    }
+    drawFood();
+    drawParticles();
+}
+
+/*
+ * getInterpolatedSegs – returns a copy of snake[] with fractional grid
+ * coordinates that smoothly interpolate from prevSnake to snake based on
+ * how far we are into the current tick.  Uses smooth-step easing so the
+ * movement accelerates at the start and slows at the end (less stroboscopic).
+ */
+function getInterpolatedSegs(){
+    if(!prevSnake.length || !lastTickTime) return snake;
+    var raw = Math.min(1, (performance.now() - lastTickTime) / Math.max(1, tickDuration));
+    var e   = raw * raw * (3 - 2 * raw); /* smooth-step */
+    var result = [];
+    for(var i=0; i<snake.length; i++){
+        var curr  = snake[i];
+        var prevI = i + segOffset;
+        var prev  = (prevI < prevSnake.length) ? prevSnake[prevI]
+                                               : (prevSnake[prevSnake.length-1] || curr);
+        var dx = curr.x - prev.x, dy = curr.y - prev.y;
+        /* don't interpolate across edge-wraps (teleport) */
+        if(Math.abs(dx) > 1 || Math.abs(dy) > 1){
+            result.push({x: curr.x, y: curr.y});
+        } else {
+            result.push({x: prev.x + dx*e, y: prev.y + dy*e});
+        }
+    }
+    return result;
+}
+
+/* Hex #rrggbb → rgba(r,g,b,alpha) — needed for tapered tail fade */
+function hexToRgba(hex, alpha){
+    var h = hex.replace('#','');
+    if(h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    var r=parseInt(h.slice(0,2),16), g=parseInt(h.slice(2,4),16), b=parseInt(h.slice(4,6),16);
+    return 'rgba('+r+','+g+','+b+','+Math.max(0,Math.min(1,alpha)).toFixed(3)+')';
+}
+
+/* Return the colour cfg for the currently active skin */
+function getActiveSkinCfg(){
+    for(var i=0; i<SNAKE_SKINS.length; i++){
+        if(SNAKE_SKINS[i].id === activeSnakeSkin) return SNAKE_SKINS[i].cfg;
+    }
+    return SNAKE_SKINS[0].cfg; /* fallback → classic green */
+}
+
+function drawSnakeDefault(){
+    if(snake.length < 2) return;
+    var cfg = getActiveSkinCfg();
+
+    /* Build pixel positions from interpolated grid coords, head at index 0 */
+    var iSegs = getInterpolatedSegs();
+    var segs  = [];
+    for(var i=iSegs.length-1; i>=0; i--){
+        segs.push({x: iSegs[i].x*GRID+GRID/2, y: iSegs[i].y*GRID+GRID/2});
+    }
+    var slen = segs.length;
+
+    /* Detect edge-wraps: segs[i]→segs[i+1] is a teleport when > 1.5 cells apart */
+    var wrap = [];
+    for(var wi=0; wi<slen-1; wi++){
+        wrap[wi] = Math.abs(segs[wi].x-segs[wi+1].x) > GRID*1.5 ||
+                   Math.abs(segs[wi].y-segs[wi+1].y) > GRID*1.5;
+    }
+
+    /* Midpoints – only geometrically valid when !wrap[mi] */
+    var mids = [];
+    for(var mi=0; mi<slen-1; mi++){
+        mids.push({x:(segs[mi].x+segs[mi+1].x)*0.5, y:(segs[mi].y+segs[mi+1].y)*0.5});
+    }
+    var nm = mids.length;
+    if(nm < 1) return;
+
+    var split    = Math.floor(nm * 0.35);
+    var maxWidth = GRID * 0.76;
+    var frontEnd = nm - split - 1; /* last mid-index of front body */
+
+    ctx.save();
+    ctx.lineCap  = 'round';
+    ctx.lineJoin = 'round';
+
+    /*
+     * drawBodyPath – draws bezier from mids[fromMi] to mids[toMiIncl]
+     * splitting the canvas path whenever an edge-wrap is detected so no
+     * ghost line shoots across the screen.
+     */
+    function drawBodyPath(fromMi, toMiIncl, lineW, color){
+        ctx.lineWidth   = lineW;
+        ctx.strokeStyle = color;
+        var inPath = false;
+        for(var bi=fromMi; bi<=toMiIncl; bi++){
+            var curOk   = !wrap[bi];
+            var nextOk  = (bi < nm-1) ? !wrap[bi+1] : true;
+            if(!curOk){
+                if(inPath){ ctx.stroke(); inPath = false; }
+                continue;
+            }
+            if(!inPath){
+                ctx.beginPath();
+                ctx.moveTo(mids[bi].x, mids[bi].y);
+                inPath = true;
+            }
+            if(bi < toMiIncl && curOk && nextOk){
+                ctx.quadraticCurveTo(segs[bi+1].x, segs[bi+1].y, mids[bi+1].x, mids[bi+1].y);
+            }
+        }
+        if(inPath) ctx.stroke();
+    }
+
+    /* shadow */
+    drawBodyPath(0, frontEnd, maxWidth + 5, 'rgba(0,0,0,0.28)');
+    /* front 65 % body */
+    drawBodyPath(0, frontEnd, maxWidth, cfg.body[0]);
+
+    /* tail 35 %: taper + fade, skip any wrap segment */
+    for(var ti=frontEnd; ti<nm-1; ti++){
+        if(wrap[ti] || wrap[ti+1]) continue;
+        var tf = (ti-frontEnd) / split;
+        ctx.beginPath();
+        ctx.moveTo(mids[ti].x, mids[ti].y);
+        ctx.quadraticCurveTo(segs[ti+1].x, segs[ti+1].y, mids[ti+1].x, mids[ti+1].y);
+        ctx.lineWidth   = Math.max(1, maxWidth*(1-tf*0.85));
+        ctx.strokeStyle = hexToRgba(cfg.tail[0], 1-tf*0.9);
+        ctx.stroke();
+    }
+
+    /* head glow */
+    var hx=segs[0].x, hy=segs[0].y, hr=GRID*0.43;
+    var grd=ctx.createRadialGradient(hx,hy,0,hx,hy,hr*2.8);
+    grd.addColorStop(0,hexToRgba(cfg.head[0],0.45));
+    grd.addColorStop(1,hexToRgba(cfg.head[0],0));
+    ctx.beginPath(); ctx.arc(hx,hy,hr*2.8,0,Math.PI*2);
+    ctx.fillStyle=grd; ctx.fill();
+
+    /* head solid */
+    var g1=ctx.createRadialGradient(hx-2,hy-2,0,hx,hy,hr);
+    g1.addColorStop(0,cfg.head[0]); g1.addColorStop(1,cfg.head[1]);
+    ctx.fillStyle=g1;
+    ctx.beginPath(); ctx.arc(hx,hy,hr,0,Math.PI*2); ctx.fill();
+
+    /* eyes */
+    var dx=direction.x, dy=direction.y, perpX=-dy, perpY=dx;
+    var eLat=hr*0.52, eFwd=hr*0.25, eR=hr*0.33;
+    var ex1=hx+dx*eFwd+perpX*eLat, ey1=hy+dy*eFwd+perpY*eLat;
+    var ex2=hx+dx*eFwd-perpX*eLat, ey2=hy+dy*eFwd-perpY*eLat;
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(ex1,ey1,eR,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex2,ey2,eR,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#111';
+    ctx.beginPath(); ctx.arc(ex1+dx*eR*0.4,ey1+dy*eR*0.4,eR*0.55,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex2+dx*eR*0.4,ey2+dy*eR*0.4,eR*0.55,0,Math.PI*2); ctx.fill();
+
+    ctx.restore();
+}
+
+function drawSnakeWithSkin(){
+    var iSegs = getInterpolatedSegs();
+    for(var i=0;i<iSegs.length;i++){
+        var seg = iSegs[i];
+        var cx = seg.x*GRID;
+        var cy = seg.y*GRID;
+        var isHead = (i === iSegs.length-1);
+        var isTail = (i === 0);
+        var srcX = 60;
+        if(isHead) srcX = 0;
+        else if(isTail) srcX = 120;
+
+        var dx, dy;
+        if(isHead){ dx=direction.x; dy=direction.y; }
+        else if(i < iSegs.length-1){
+            dx = Math.round(iSegs[i+1].x - seg.x);
+            dy = Math.round(iSegs[i+1].y - seg.y);
+            if(dx > 1) dx = -1; if(dx < -1) dx = 1;
+            if(dy > 1) dy = -1; if(dy < -1) dy = 1;
+        } else { dx=1; dy=0; }
+
+        var angle = 0;
+        if(dx===1 && dy===0) angle = 0;
+        else if(dx===0 && dy===1) angle = Math.PI/2;
+        else if(dx===-1 && dy===0) angle = Math.PI;
+        else if(dx===0 && dy===-1) angle = -Math.PI/2;
+
+        ctx.save();
+        ctx.translate(cx+GRID/2, cy+GRID/2);
+        ctx.rotate(angle);
+        ctx.drawImage(customSkinImg, srcX, 0, 60, 60, -GRID/2, -GRID/2, GRID, GRID);
+        ctx.restore();
+    }
+}
+
+function drawFood(){
+    if(!food) return;
+    var fx = food.x*GRID + GRID/2;
+    var fy = food.y*GRID + GRID/2;
+    if(customSkinImg){
+        ctx.save();
+        ctx.translate(fx, fy);
+        ctx.drawImage(customSkinImg, 180, 0, 60, 60, -GRID/2, -GRID/2, GRID, GRID);
+        ctx.restore();
+        return;
+    }
+    var t = Date.now() / 500;
+    var glow = ctx.createRadialGradient(fx,fy,0,fx,fy,GRID/2+4);
+    glow.addColorStop(0,'rgba(255,200,50,0.8)');
+    glow.addColorStop(0.5,'rgba(255,100,50,0.4)');
+    glow.addColorStop(1,'rgba(255,50,50,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(fx,fy,GRID/2+4,0,Math.PI*2); ctx.fill();
+
+    ctx.fillStyle = '#ffcc33';
+    ctx.beginPath(); ctx.arc(fx,fy,10,0,Math.PI*2); ctx.fill();
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('?', fx, fy+1);
+
+    for(var s=0;s<3;s++){
+        var a = t + s*(Math.PI*2/3);
+        var sx = fx + Math.cos(a)*18;
+        var sy = fy + Math.sin(a)*18;
+        ctx.fillStyle = 'rgba(255,255,100,'+(0.5+Math.sin(t*2+s)*0.3)+')';
+        ctx.beginPath(); ctx.arc(sx,sy,2.5,0,Math.PI*2); ctx.fill();
+    }
+}
+
+/* Physics step – called once per game tick (not per render frame) */
+function stepParticles(){
+    for(var i=particles.length-1;i>=0;i--){
+        var p = particles[i];
+        p.x += p.vx; p.y += p.vy;
+        p.vx *= 0.90; p.vy *= 0.90; /* friction */
+        p.life--;
+        if(p.life <= 0) particles.splice(i,1);
+    }
+}
+/* Render-only – called every animation frame */
+function drawParticles(){
+    for(var i=0;i<particles.length;i++){
+        var p = particles[i];
+        ctx.globalAlpha = p.life/45;
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 3*(p.life/45), 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+}
+
+/* ============ PONG GAME ============ */
+
+function initPong(){
+    pongP1Score = 0;
+    pongP2Score = 0;
+    var pH = Math.round(CANVAS_SIZE * 0.167); // ~100 at 600
+    var pW = Math.max(8, Math.round(CANVAS_SIZE * 0.02));
+    pongP1 = {y:CANVAS_SIZE*0.417, h:pH, w:pW};
+    pongP2 = {y:CANVAS_SIZE*0.417, h:pH, w:pW};
+    pongKeysDown = {};
+    pongRallyCount = 0;
+    pongAITarget = CANVAS_SIZE/2;
+    pongPendingPoint = false;
+    pongBallTrail = [];
+    pongLivesP1 = 3;
+    pongLivesP2 = 3;
+    gameRunning = true;
+    resetPongBall();
+    updateHud();
+    pongLoop();
+}
+
+function resetPongBall(){
+    var br = Math.max(5, Math.round(CANVAS_SIZE * 0.0133)); // ~8 at 600
+    pongBall = {x:CANVAS_SIZE/2, y:CANVAS_SIZE/2, r:br};
+    var angle = (Math.random()-0.5)*Math.PI/3;
+    var dir = Math.random() > 0.5 ? 1 : -1;
+    var speed = 4;
+    pongBallSpeedX = Math.cos(angle)*speed*dir;
+    pongBallSpeedY = Math.sin(angle)*speed;
+    pongRallyCount = 0;
+    pongBallTrail = [];
+}
+
+function pongLoop(){
+    if(!gameRunning) return;
+    if(quizActive){
+        drawPongFrame();
+        gameLoopTimeout = setTimeout(pongLoop, 16);
+        return;
+    }
+    pongUpdate();
+    drawPongFrame();
+    gameLoopTimeout = setTimeout(pongLoop, 16);
+}
+
+function pongUpdate(){
+    var paddleSpeed = 5;
+    if(gameMode === 'pong-solo'){
+        if(pongKeysDown['w'] || pongKeysDown['W'] || pongKeysDown['ArrowUp']) pongP1.y -= paddleSpeed;
+        if(pongKeysDown['s'] || pongKeysDown['S'] || pongKeysDown['ArrowDown']) pongP1.y += paddleSpeed;
+
+        var aiSpeed = 2.5 + level*0.5;
+        var aiCenter = pongP2.y + pongP2.h/2;
+        if(pongBallSpeedX > 0){
+            pongAITarget = pongBall.y + (Math.random()-0.5)*(40 - Math.min(level*3, 35));
+        }
+        if(aiCenter < pongAITarget - 10) pongP2.y += Math.min(aiSpeed, pongAITarget - aiCenter);
+        else if(aiCenter > pongAITarget + 10) pongP2.y -= Math.min(aiSpeed, aiCenter - pongAITarget);
+    } else {
+        if(pongKeysDown['w'] || pongKeysDown['W']) pongP1.y -= paddleSpeed;
+        if(pongKeysDown['s'] || pongKeysDown['S']) pongP1.y += paddleSpeed;
+        if(pongKeysDown['ArrowUp']) pongP2.y -= paddleSpeed;
+        if(pongKeysDown['ArrowDown']) pongP2.y += paddleSpeed;
+    }
+
+    pongP1.y = Math.max(0, Math.min(CANVAS_SIZE-pongP1.h, pongP1.y));
+    pongP2.y = Math.max(0, Math.min(CANVAS_SIZE-pongP2.h, pongP2.y));
+
+    pongBall.x += pongBallSpeedX;
+    pongBall.y += pongBallSpeedY;
+
+    pongBallTrail.push({x:pongBall.x, y:pongBall.y});
+    if(pongBallTrail.length > 12) pongBallTrail.shift();
+
+    if(pongBall.y - pongBall.r <= 0){ pongBall.y = pongBall.r; pongBallSpeedY = Math.abs(pongBallSpeedY); }
+    if(pongBall.y + pongBall.r >= CANVAS_SIZE){ pongBall.y = CANVAS_SIZE-pongBall.r; pongBallSpeedY = -Math.abs(pongBallSpeedY); }
+
+    var p1x = Math.round(CANVAS_SIZE*0.025);
+    var p2x = CANVAS_SIZE-p1x-pongP2.w;
+
+    if(pongBall.x - pongBall.r <= p1x+pongP1.w && pongBall.y >= pongP1.y && pongBall.y <= pongP1.y+pongP1.h && pongBallSpeedX < 0){
+        pongBall.x = p1x+pongP1.w+pongBall.r;
+        pongBallSpeedX = Math.abs(pongBallSpeedX);
+        var hitPos = (pongBall.y - pongP1.y)/pongP1.h - 0.5;
+        pongBallSpeedY += hitPos*3;
+        pongRallyCount++;
+        var speedMult = 1 + pongRallyCount*0.02;
+        pongBallSpeedX *= speedMult;
+    }
+
+    if(pongBall.x + pongBall.r >= p2x && pongBall.y >= pongP2.y && pongBall.y <= pongP2.y+pongP2.h && pongBallSpeedX > 0){
+        pongBall.x = p2x - pongBall.r;
+        pongBallSpeedX = -Math.abs(pongBallSpeedX);
+        var hitPos2 = (pongBall.y - pongP2.y)/pongP2.h - 0.5;
+        pongBallSpeedY += hitPos2*3;
+        pongRallyCount++;
+        var speedMult2 = 1 + pongRallyCount*0.02;
+        pongBallSpeedX *= speedMult2;
+    }
+
+    if(pongBall.x < -pongBall.r*2){
+        pongScoringPlayer = 2;
+        pongPendingPoint = true;
+        showPongQuiz();
+        return;
+    }
+    if(pongBall.x > CANVAS_SIZE+pongBall.r*2){
+        pongScoringPlayer = 1;
+        pongPendingPoint = true;
+        showPongQuiz();
+        return;
+    }
+}
+
+function showPongQuiz(){
+    showQuiz(function(correct){
+        if(correct){
+            if(pongScoringPlayer === 1) pongP1Score++;
+            else pongP2Score++;
+            score += 10;
+            if(score > 0 && score % 50 === 0){
+                level++;
+            }
+        } else {
+            if(freePlayMode){
+                /* keine Leben im Free Play */
+            } else if(gameMode === 'pong-solo'){
+                lives--;
+                if(lives <= 0){ gameOver(); return; }
+            } else {
+                if(pongScoringPlayer === 1){
+                    pongLivesP1--;
+                    if(pongLivesP1 <= 0){ gameOver(); return; }
+                } else {
+                    pongLivesP2--;
+                    if(pongLivesP2 <= 0){ gameOver(); return; }
+                }
+            }
+        }
+        updateHud();
+        pongPendingPoint = false;
+        resetPongBall();
+
+        if(!freePlayMode && (pongP1Score >= 5 || pongP2Score >= 5)){
+            gameOver();
+            return;
+        }
+    }, pongScoringPlayer);
+}
+
+function drawPongFrame(){
+    ctx.fillStyle = '#0a0a2e';
+    ctx.fillRect(0,0,CANVAS_SIZE,CANVAS_SIZE);
+    var grad = ctx.createLinearGradient(0,0,CANVAS_SIZE,CANVAS_SIZE);
+    grad.addColorStop(0,'#0a0a2e');
+    grad.addColorStop(1,'#0f1040');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,CANVAS_SIZE,CANVAS_SIZE);
+
+    /* center line */
+    ctx.setLineDash([10,10]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(CANVAS_SIZE/2,0); ctx.lineTo(CANVAS_SIZE/2,CANVAS_SIZE); ctx.stroke();
+    ctx.setLineDash([]);
+
+    /* score display */
+    var scoreFontSz = Math.round(CANVAS_SIZE*0.08);
+    ctx.font = 'bold ' + scoreFontSz + 'px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.fillText(pongP1Score, CANVAS_SIZE/4, 20);
+    ctx.fillText(pongP2Score, CANVAS_SIZE*3/4, 20);
+
+    /* paddles */
+    var p1xPos = Math.round(CANVAS_SIZE*0.025);
+    var p2xPos = CANVAS_SIZE-p1xPos-pongP2.w;
+    if(customPongSkinImg){
+        ctx.drawImage(customPongSkinImg, 0, 0, 60, 120, p1xPos, pongP1.y, pongP1.w, pongP1.h);
+        ctx.drawImage(customPongSkinImg, 60, 0, 60, 120, p2xPos, pongP2.y, pongP2.w, pongP2.h);
+    } else {
+        ctx.shadowColor = '#00f2ff';
+        ctx.shadowBlur = 15;
+        var p1Glow = ctx.createLinearGradient(p1xPos, pongP1.y, p1xPos+pongP1.w, pongP1.y+pongP1.h);
+        p1Glow.addColorStop(0,'#00f2ff');
+        p1Glow.addColorStop(1,'#0088ff');
+        ctx.fillStyle = p1Glow;
+        ctx.beginPath();
+        ctx.roundRect(p1xPos, pongP1.y, pongP1.w, pongP1.h, 4);
+        ctx.fill();
+
+        ctx.shadowColor = '#ff6b00';
+        ctx.shadowBlur = 15;
+        var p2Glow = ctx.createLinearGradient(p2xPos, pongP2.y, p2xPos+pongP2.w, pongP2.y+pongP2.h);
+        p2Glow.addColorStop(0,'#ff6b00');
+        p2Glow.addColorStop(1,'#ff3300');
+        ctx.fillStyle = p2Glow;
+        ctx.beginPath();
+        ctx.roundRect(p2xPos, pongP2.y, pongP2.w, pongP2.h, 4);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    /* ball trail */
+    for(var i=0;i<pongBallTrail.length;i++){
+        var tr = pongBallTrail[i];
+        var alpha = (i+1)/pongBallTrail.length * 0.3;
+        ctx.fillStyle = 'rgba(255,255,255,'+alpha+')';
+        ctx.beginPath();
+        ctx.arc(tr.x, tr.y, pongBall.r*(i/pongBallTrail.length), 0, Math.PI*2);
+        ctx.fill();
+    }
+
+    /* ball */
+    if(customPongSkinImg){
+        ctx.drawImage(customPongSkinImg, 120, 0, 60, 120, pongBall.x-pongBall.r*1.4, pongBall.y-pongBall.r*1.4, pongBall.r*2.8, pongBall.r*2.8);
+    } else {
+        ctx.shadowColor = '#fff';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(pongBall.x, pongBall.y, pongBall.r, 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+}
+
+/* ============ HUD ============ */
+
+function updateHud(){
+    document.getElementById('hud-score').textContent = score;
+    document.getElementById('hud-level').textContent = level;
+    document.getElementById('hud-lives').textContent = lives;
+    if(gameMode !== 'snake'){
+        document.getElementById('hud-p1').textContent = pongP1Score;
+        document.getElementById('hud-p2').textContent = pongP2Score;
+    }
+}
+
+/* ============ QUIZ OVERLAY ============ */
+
+function showQuiz(callback, scoringPlayer){
+    quizActive = true;
+    ankiPhase = false;
+    quizAnswered = false;
+    turnCount++;
+    currentQuizQuestion = selectQuestion();
+    if(!currentQuizQuestion){ quizActive=false; callback(true); return; }
+
+    var overlay = document.getElementById('quiz-overlay');
+    overlay.classList.add('active');
+    document.getElementById('quiz-question').textContent = currentQuizQuestion.q;
+    var answersDiv = document.getElementById('quiz-answers');
+    answersDiv.innerHTML = '';
+
+    var feedback = document.getElementById('quiz-feedback');
+    feedback.classList.add('hidden');
+    feedback.className = 'quiz-feedback hidden';
+    document.getElementById('anki-buttons').classList.add('hidden');
+
+    var indicator = document.getElementById('player-indicator');
+    if(gameMode === 'pong-multi' && scoringPlayer){
+        indicator.classList.remove('hidden');
+        indicator.textContent = 'Spieler ' + scoringPlayer + ' muss antworten!';
+    } else {
+        indicator.classList.add('hidden');
+    }
+
+    var labels = ['A','B','C','D'];
+    quizAnswerCallback = callback;
+
+    currentQuizQuestion.answers.forEach(function(ans, idx){
+        var btn = document.createElement('button');
+        btn.className = 'quiz-btn';
+        btn.innerHTML = '<span class="hotkey-badge">' + (idx+1) + '</span>' + labels[idx] + ') ' + escapeHtml(ans);
+        btn.setAttribute('data-idx', idx);
+        var handler = function(){ handleQuizAnswer(idx); };
+        btn.addEventListener('click', handler);
+        btn.addEventListener('touchend', function(e){ e.preventDefault(); handler(); });
+        answersDiv.appendChild(btn);
+    });
+}
+
+function handleQuizAnswer(idx){
+    if(ankiPhase || quizAnswered) return;
+    quizAnswered = true;
+
+    var btns = document.querySelectorAll('.quiz-btn');
+    btns.forEach(function(b){
+        b.style.pointerEvents = 'none';
+        var bIdx = parseInt(b.getAttribute('data-idx'));
+        if(bIdx === currentQuizQuestion.correct) b.classList.add('correct-answer');
+        if(bIdx === idx && idx !== currentQuizQuestion.correct) b.classList.add('wrong-answer');
+    });
+
+    var feedback = document.getElementById('quiz-feedback');
+    feedback.classList.remove('hidden');
+    currentQuizCorrect = (idx === currentQuizQuestion.correct);
+
+    if(currentQuizCorrect){
+        correctCount++;
+        feedback.className = 'quiz-feedback correct';
+        feedback.textContent = 'Richtig!';
+    } else {
+        wrongCount++;
+        feedback.className = 'quiz-feedback wrong';
+        feedback.textContent = 'Falsch! Richtig wäre: ' + currentQuizQuestion.answers[currentQuizQuestion.correct];
+    }
+
+    /* Frage als gesehen markieren (Online-Modus) */
+    if(currentOnlineSetId){
+        for(var si=0;si<questions.length;si++){
+            if(questions[si] === currentQuizQuestion){ sessionSeenIndices[si] = true; break; }
+        }
+    }
+
+    if(currentOnlineSetId){
+        /* Online: kein Anki, Quiz schließt automatisch nach 1.2s */
+        setTimeout(function(){
+            document.getElementById('quiz-overlay').classList.remove('active');
+            quizActive = false;
+            ankiPhase = false;
+            quizAnswered = false;
+            if(quizAnswerCallback){ var cb = quizAnswerCallback; quizAnswerCallback = null; cb(currentQuizCorrect); }
+        }, 1200);
+    } else {
+        ankiPhase = true;
+        document.getElementById('anki-buttons').classList.remove('hidden');
+    }
+}
+
+/* Anki rating buttons */
+document.querySelectorAll('.anki-btn').forEach(function(btn){
+    var handler = function(){
+        if(!ankiPhase) return;
+        var rating = parseInt(btn.getAttribute('data-rating'));
+        setAnkiRating(currentQuizQuestion, rating);
+        var keys = {1:'nochmal',2:'schwer',3:'gut',4:'leicht'};
+        ankiSessionStats[keys[rating]]++;
+
+        document.getElementById('quiz-overlay').classList.remove('active');
+        quizActive = false;
+        ankiPhase = false;
+        quizAnswered = false;
+
+        if(quizAnswerCallback){
+            var cb = quizAnswerCallback;
+            quizAnswerCallback = null;
+            cb(currentQuizCorrect);
+        }
+    };
+    btn.addEventListener('click', handler);
+    btn.addEventListener('touchend', function(e){ e.preventDefault(); handler(); });
+});
+
+/* ============ GAME OVER ============ */
+
+function gameOver(){
+    gameRunning = false;
+    clearTimeout(gameLoopTimeout);
+    document.getElementById('quiz-overlay').classList.remove('active');
+    quizActive = false;
+    ankiPhase = false;
+
+    var overlay = document.getElementById('gameover-overlay');
+    overlay.classList.add('active');
+    document.getElementById('go-score').textContent = score;
+    document.getElementById('go-correct').textContent = correctCount;
+    document.getElementById('go-wrong').textContent = wrongCount;
+
+    var statsDiv = document.getElementById('go-anki-stats');
+    statsDiv.innerHTML = '<div style="margin-bottom:6px;font-weight:600;">Anki-Bewertungen:</div>' +
+        '<span class="anki-badge anki-nochmal">Nochmal: ' + ankiSessionStats.nochmal + '</span> ' +
+        '<span class="anki-badge anki-schwer">Schwer: ' + ankiSessionStats.schwer + '</span> ' +
+        '<span class="anki-badge anki-gut">Gut: ' + ankiSessionStats.gut + '</span> ' +
+        '<span class="anki-badge anki-leicht">Leicht: ' + ankiSessionStats.leicht + '</span>';
+
+    /* leaderboard */
+    var lbSection = document.getElementById('go-leaderboard-section');
+    var lbSubmitArea = document.getElementById('lb-submit-area');
+    var lbMsg = document.getElementById('lb-submit-msg');
+    lbSection.style.display = 'none';
+    if(lbMsg) lbMsg.textContent = '';
+    /* hide/show Nochmal-spielen based on online mode */
+    document.getElementById('go-restart').style.display = currentOnlineSetId ? 'none' : '';
+
+    if(currentOnlineSetId && supabaseClient){
+        var topic = (document.getElementById('topic-input').value || '').trim();
+        lbSection.style.display = 'block';
+        /* sync username from input field */
+        var uInput = document.getElementById('online-username');
+        if(uInput && uInput.value.trim()) onlineUsername = uInput.value.trim();
+        if(onlineUsername){
+            /* auto-submit */
+            if(lbSubmitArea) lbSubmitArea.style.display = 'none';
+            submitScore(onlineUsername);
+        } else {
+            /* fallback: show manual input */
+            if(lbSubmitArea) lbSubmitArea.style.display = 'block';
+            var nickInput = document.getElementById('lb-nickname');
+            if(nickInput) nickInput.value = '';
+            loadLeaderboard(currentOnlineSetId, topic);
+        }
+    }
+
+    renderQuestions();
+}
+
+addBtnHandler(document.getElementById('go-restart'), function(){
+    document.getElementById('gameover-overlay').classList.remove('active');
+    document.getElementById('quiz-overlay').classList.remove('active');
+    score = 0; level = 1; lives = 3; turnCount = 0; correctCount = 0; wrongCount = 0;
+    ankiSessionStats = {nochmal:0, schwer:0, gut:0, leicht:0};
+    sessionSeenIndices = {};
+    quizActive = false; ankiPhase = false; quizAnswered = false;
+    if(gameMode === 'snake') initSnake();
+    else initPong();
+});
+
+addBtnHandler(document.getElementById('go-menu'), function(){
+    document.getElementById('gameover-overlay').classList.remove('active');
+    document.getElementById('quiz-overlay').classList.remove('active');
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'block';
+    gameRunning = false;
+    clearTimeout(gameLoopTimeout);
+    renderQuestions();
+});
+
+/* ============ KEYBOARD INPUT ============ */
+
+document.addEventListener('keydown', function(e){
+    if(document.getElementById('game-screen').style.display !== 'block') return;
+
+    pongKeysDown[e.key] = true;
+
+    if(gameMode === 'snake' && !quizActive){
+        if((e.key==='ArrowUp' || e.key==='w' || e.key==='W') && direction.y!==1) nextDirection={x:0,y:-1};
+        if((e.key==='ArrowDown' || e.key==='s' || e.key==='S') && direction.y!==-1) nextDirection={x:0,y:1};
+        if((e.key==='ArrowLeft' || e.key==='a' || e.key==='A') && direction.x!==1) nextDirection={x:-1,y:0};
+        if((e.key==='ArrowRight' || e.key==='d' || e.key==='D') && direction.x!==-1) nextDirection={x:1,y:0};
+    }
+
+    if(quizActive && (e.key==='1'||e.key==='2'||e.key==='3'||e.key==='4')){
+        var num = parseInt(e.key);
+        if(ankiPhase){
+            var ankiBtn = document.querySelector('.anki-btn[data-rating="'+num+'"]');
+            if(ankiBtn) ankiBtn.click();
+        } else if(!quizAnswered){
+            var quizBtns = document.querySelectorAll('.quiz-btn');
+            if(quizBtns[num-1]) quizBtns[num-1].click();
+        }
+    }
+
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].indexOf(e.key)>=0){
+        e.preventDefault();
+    }
+});
+
+document.addEventListener('keyup', function(e){
+    delete pongKeysDown[e.key];
+});
+
+/* ============ TOUCH HANDLER (SNAKE SWIPE + PONG DRAG) ============ */
+
+var touchStartX = 0, touchStartY = 0;
+var pongTouchP1 = null, pongTouchP2 = null;
+
+canvas.addEventListener('touchstart', function(e){
+    if(gameMode === 'snake'){
+        var t = e.touches[0];
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+        return;
+    }
+    /* Pong: track touch per paddle */
+    if(quizActive) return;
+    var rect = canvas.getBoundingClientRect();
+    var scaleX = CANVAS_SIZE / rect.width;
+    for(var i=0;i<e.changedTouches.length;i++){
+        var t = e.changedTouches[i];
+        var relX = (t.clientX - rect.left) * scaleX;
+        if(gameMode === 'pong-multi' && relX >= CANVAS_SIZE/2){
+            if(!pongTouchP2) pongTouchP2 = {id:t.identifier, startY:t.clientY, paddleY:pongP2.y};
+        } else {
+            if(!pongTouchP1) pongTouchP1 = {id:t.identifier, startY:t.clientY, paddleY:pongP1.y};
+        }
+    }
+}, {passive:true});
+
+canvas.addEventListener('touchmove', function(e){
+    if(gameMode === 'snake' || quizActive) return;
+    e.preventDefault();
+    var rect = canvas.getBoundingClientRect();
+    var scaleY = CANVAS_SIZE / rect.height;
+    for(var i=0;i<e.changedTouches.length;i++){
+        var t = e.changedTouches[i];
+        var dy = (t.clientY - (pongTouchP1 && t.identifier===pongTouchP1.id ? pongTouchP1.startY :
+                  pongTouchP2 && t.identifier===pongTouchP2.id ? pongTouchP2.startY : t.clientY)) * scaleY;
+        if(pongTouchP1 && t.identifier === pongTouchP1.id){
+            pongP1.y = Math.max(0, Math.min(CANVAS_SIZE-pongP1.h, pongTouchP1.paddleY + dy));
+        }
+        if(pongTouchP2 && t.identifier === pongTouchP2.id){
+            pongP2.y = Math.max(0, Math.min(CANVAS_SIZE-pongP2.h, pongTouchP2.paddleY + dy));
+        }
+    }
+}, {passive:false});
+
+canvas.addEventListener('touchend', function(e){
+    if(gameMode === 'snake'){
+        if(quizActive) return;
+        var t = e.changedTouches[0];
+        var dx = t.clientX - touchStartX;
+        var dy = t.clientY - touchStartY;
+        if(Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
+        if(Math.abs(dx) > Math.abs(dy)){
+            if(dx > 0 && direction.x !== -1) nextDirection = {x:1,y:0};
+            else if(dx < 0 && direction.x !== 1) nextDirection = {x:-1,y:0};
+        } else {
+            if(dy > 0 && direction.y !== -1) nextDirection = {x:0,y:1};
+            else if(dy < 0 && direction.y !== 1) nextDirection = {x:0,y:-1};
+        }
+        return;
+    }
+    /* Pong: release */
+    for(var i=0;i<e.changedTouches.length;i++){
+        var t = e.changedTouches[i];
+        if(pongTouchP1 && t.identifier === pongTouchP1.id) pongTouchP1 = null;
+        if(pongTouchP2 && t.identifier === pongTouchP2.id) pongTouchP2 = null;
+    }
+});
+
+/* ============ MOBILE BUTTONS ============ */
+
+function addMobileBtn(id, dir){
+    var btn = document.getElementById(id);
+    if(!btn) return;
+    var handler = function(){
+        if(gameMode !== 'snake' || quizActive) return;
+        if(dir.x !== 0 && direction.x !== -dir.x) nextDirection = dir;
+        else if(dir.y !== 0 && direction.y !== -dir.y) nextDirection = dir;
+    };
+    btn.addEventListener('click', handler);
+    btn.addEventListener('touchend', function(e){ e.preventDefault(); handler(); });
+}
+addMobileBtn('m-up', {x:0,y:-1});
+addMobileBtn('m-down', {x:0,y:1});
+addMobileBtn('m-left', {x:-1,y:0});
+addMobileBtn('m-right', {x:1,y:0});
+
+function addPongMobileBtn(id, getpaddle, dir){
+    var btn = document.getElementById(id);
+    if(!btn) return;
+    var interval = null;
+    var speed = Math.max(5, Math.round(CANVAS_SIZE * 0.012));
+    var move = function(){
+        if(quizActive) return;
+        var p = getpaddle();
+        p.y = Math.max(0, Math.min(CANVAS_SIZE - p.h, p.y + dir * speed));
+    };
+    var start = function(e){ e.preventDefault(); move(); interval = setInterval(move, 50); };
+    var stop  = function(e){ e.preventDefault(); clearInterval(interval); interval = null; };
+    btn.addEventListener('touchstart', start, {passive:false});
+    btn.addEventListener('touchend',   stop,  {passive:false});
+    btn.addEventListener('touchcancel',stop,  {passive:false});
+    btn.addEventListener('mousedown', function(){ move(); interval = setInterval(move, 50); });
+    btn.addEventListener('mouseup',   function(){ clearInterval(interval); interval = null; });
+    btn.addEventListener('mouseleave',function(){ clearInterval(interval); interval = null; });
+}
+
+function setupMobileControls(){
+    var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    var mc = document.getElementById('mobile-controls');
+    var snakeCtrl = document.getElementById('snake-controls');
+    var pongCtrl  = document.getElementById('pong-controls');
+    var p2Btns    = document.getElementById('pong-p2-btns');
+
+    if(gameMode === 'snake'){
+        snakeCtrl.style.display = 'block';
+        pongCtrl.style.display  = 'none';
+        mc.style.display = isTouch ? 'block' : 'none';
+    } else {
+        snakeCtrl.style.display = 'none';
+        pongCtrl.style.display  = 'flex';
+        p2Btns.style.display    = (gameMode === 'pong-multi') ? 'flex' : 'none';
+        mc.style.display = isTouch ? 'block' : 'none';
+        addPongMobileBtn('m-p1-up',   function(){ return pongP1; }, -1);
+        addPongMobileBtn('m-p1-down', function(){ return pongP1; },  1);
+        if(gameMode === 'pong-multi'){
+            addPongMobileBtn('m-p2-up',   function(){ return pongP2; }, -1);
+            addPongMobileBtn('m-p2-down', function(){ return pongP2; },  1);
+        }
+    }
+}
+
+/* ============ SUPABASE / ONLINE FEATURES ============ */
+
+var SUPABASE_URL = 'https://vrcumhtjmajtznxputrc.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_QjBoVSigjGWsSWbDqz82iQ_1-qcgh_y';
+var supabaseClient = null;
+var currentOnlineSetId = null;
+var onlineUsername = '';
+
+function escHtml(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function initSupabase(){
+    try {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        document.getElementById('online-sets-section').classList.remove('hidden');
+        loadOnlineSets();
+    } catch(e){
+        console.warn('Supabase init failed:', e);
+    }
+}
+
+function loadOnlineSets(){
+    var list = document.getElementById('online-sets-list');
+    if(!supabaseClient){
+        list.innerHTML = '<p style="color:#888;font-size:.85rem;">Offline – keine öffentlichen Sets verfügbar.</p>';
+        return;
+    }
+    list.innerHTML = '<p style="color:#888;font-size:.85rem;text-align:center;padding:8px 0;">&#x23F3; Lade Sets…</p>';
+    supabaseClient
+        .from('public_sets')
+        .select('id,topic,questions,author_name,play_count,created_at')
+        .order('play_count', {ascending: false})
+        .limit(50)
+        .then(function(res){
+            if(res.error){
+                list.innerHTML = '<p style="color:#f44;font-size:.85rem;">Fehler: '+escHtml(res.error.message)+'</p>';
+                return;
+            }
+            var sets = res.data || [];
+            if(sets.length === 0){
+                list.innerHTML = '<p style="color:#888;font-size:.85rem;text-align:center;padding:8px 0;">Noch keine öffentlichen Sets vorhanden.</p>';
+                return;
+            }
+            list.innerHTML = '';
+            sets.forEach(function(s){
+                var qs = s.questions;
+                if(typeof qs === 'string') try{ qs = JSON.parse(qs); }catch(e){ qs = []; }
+                var qCount = (qs||[]).length;
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'online-set-item';
+                btn.innerHTML =
+                    '<div class="set-info">' +
+                    '<div class="set-name">'+escHtml(s.topic)+'</div>' +
+                    '<div class="set-meta">von '+escHtml(s.author_name||'Anonym')+' &middot; '+qCount+' Fragen &middot; &#x1F3AE; '+s.play_count+'&times; gespielt</div>' +
+                    '</div>' +
+                    '<span style="font-size:.75rem;color:#555;margin-left:8px;">&#x25B6;</span>';
+                btn.addEventListener('click', function(){
+                    document.querySelectorAll('.online-set-item').forEach(function(el){ el.classList.remove('active-online'); });
+                    btn.classList.add('active-online');
+                    loadOnlineSet(s, qs);
+                });
+                list.appendChild(btn);
+            });
+        })
+        .catch(function(){
+            list.innerHTML = '<p style="color:#f44;font-size:.85rem;">Verbindungsfehler – bitte prüfe deine Internetverbindung.</p>';
+        });
+}
+
+function loadOnlineSet(s, qs){
+    questions = qs || [];
+    currentOnlineSetId = s.id;
+    document.getElementById('topic-input').value = s.topic || '';
+    renderQuestions();
+    updateStartBtn();
+    /* show username input */
+    var playArea = document.getElementById('online-play-area');
+    var setLabel = document.getElementById('selected-set-label');
+    playArea.style.display = 'block';
+    setLabel.textContent = '✅ Ausgewählt: ' + s.topic;
+    var savedNick = localStorage.getItem('lb-nickname') || '';
+    var nickInput = document.getElementById('online-username');
+    nickInput.value = savedNick;
+    onlineUsername = savedNick;
+    nickInput.focus();
+    /* increment play_count fire-and-forget */
+    supabaseClient.from('public_sets').update({play_count: (s.play_count||0)+1}).eq('id', s.id).then(function(){});
+    playArea.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function shareSet(){
+    if(!supabaseClient){ alert('Keine Verbindung zu Supabase.'); return; }
+    if(questions.length < 5){ alert('Du brauchst mindestens 5 Fragen zum Teilen.'); return; }
+    var topic = (document.getElementById('topic-input').value || '').trim();
+    if(!topic){ alert('Bitte zuerst ein Thema (Schritt 1) eingeben.'); return; }
+    var authorName = prompt('Dein Name für das Leaderboard (optional):') || 'Anonym';
+    if(authorName === null) return; /* cancelled */
+    var shareBtn = document.getElementById('share-set-btn');
+    shareBtn.disabled = true;
+    shareBtn.textContent = '⏳ Wird eingereicht…';
+    supabaseClient
+        .from('public_sets')
+        .insert({topic: topic, questions: questions, author_name: authorName, approved: false, play_count: 0})
+        .then(function(res){
+            shareBtn.disabled = false;
+            shareBtn.innerHTML = '&#x1F4E4; Set teilen';
+            if(res.error){ alert('Fehler: '+res.error.message); return; }
+            alert('✅ Dein Set wurde eingereicht! Es wird nach einer kurzen Prüfung freigeschaltet.');
+        })
+        .catch(function(){
+            shareBtn.disabled = false;
+            shareBtn.innerHTML = '&#x1F4E4; Set teilen';
+            alert('Verbindungsfehler. Bitte versuche es später.');
+        });
+}
+
+function renderLbRows(listEl, rows){
+    if(!rows || rows.length === 0){
+        listEl.innerHTML = '<p style="color:#888;font-size:.8rem;text-align:center;">Noch kein Eintrag – sei der Erste! &#x1F680;</p>';
+        return;
+    }
+    listEl.innerHTML = '';
+    rows.forEach(function(row, i){
+        var rank = i + 1;
+        var medal = rank===1 ? '&#x1F947;' : rank===2 ? '&#x1F948;' : rank===3 ? '&#x1F949;' : rank;
+        var modeIcon = row.game_mode === 'snake' ? '&#x1F40D;' : '&#x1F3D3;';
+        var div = document.createElement('div');
+        div.className = 'lb-row';
+        div.innerHTML =
+            '<span class="lb-rank">'+medal+'</span>' +
+            '<span class="lb-name">'+escHtml(row.nickname)+'</span>' +
+            '<span class="lb-score">'+row.score+' P</span>' +
+            '<span class="lb-mode">'+modeIcon+' '+row.correct_answers+'&#x2713;</span>';
+        listEl.appendChild(div);
+    });
+}
+
+function fetchLeaderboardRows(setId, modeFilter, callback){
+    if(!supabaseClient || !setId){ callback(null, []); return; }
+    var query = supabaseClient
+        .from('leaderboard')
+        .select('nickname,score,correct_answers,game_mode')
+        .eq('set_id', setId)
+        .order('score', {ascending:false})
+        .limit(15);
+    if(modeFilter) query = query.eq('game_mode', modeFilter);
+    query.then(function(res){ callback(res.error, res.data||[]); })
+         .catch(function(){ callback(new Error('Verbindungsfehler'), []); });
+}
+
+function currentLbMode(){
+    return (gameMode === 'snake') ? 'snake' : 'pong';
+}
+
+function loadLeaderboard(setId, topic){
+    var section = document.getElementById('go-leaderboard-section');
+    var listEl  = document.getElementById('leaderboard-list');
+    var topicEl = document.getElementById('lb-set-topic');
+    var modeIcon = (currentLbMode() === 'snake') ? '🐍' : '🏓';
+    if(topicEl) topicEl.textContent = (topic || '') + ' ' + modeIcon;
+    section.style.display = 'block';
+    listEl.innerHTML = '<p style="color:#888;font-size:.8rem;text-align:center;">&#x23F3; Lade…</p>';
+    fetchLeaderboardRows(setId, currentLbMode(), function(err, rows){
+        if(err){ listEl.innerHTML = '<p style="color:#f44;font-size:.8rem;">Fehler beim Laden</p>'; return; }
+        renderLbRows(listEl, rows);
+    });
+}
+
+function loadMenuLeaderboard(){
+    var listEl  = document.getElementById('menu-leaderboard-list');
+    var topicEl = document.getElementById('menu-lb-topic');
+    var topic   = (document.getElementById('topic-input').value || '').trim();
+    var modeIcon = (gameMode === 'snake') ? '🐍' : '🏓';
+    if(topicEl) topicEl.textContent = (topic || 'Kein Set gewählt') + ' ' + modeIcon;
+    if(!currentOnlineSetId){
+        listEl.innerHTML = '<p style="color:#888;font-size:.8rem;text-align:center;">Erst ein öffentliches Set auswählen.</p>';
+        return;
+    }
+    listEl.innerHTML = '<p style="color:#888;font-size:.8rem;text-align:center;">&#x23F3; Lade…</p>';
+    fetchLeaderboardRows(currentOnlineSetId, (gameMode==='snake')?'snake':'pong', function(err, rows){
+        if(err){ listEl.innerHTML = '<p style="color:#f44;font-size:.8rem;">Fehler beim Laden</p>'; return; }
+        renderLbRows(listEl, rows);
+    });
+}
+
+function submitScore(nickname){
+    if(!supabaseClient || !currentOnlineSetId) return;
+    var topic = (document.getElementById('topic-input').value || '').trim();
+    var msgEl = document.getElementById('lb-submit-msg');
+    var currentScore = score;
+    function setMsg(color, text){ if(msgEl){ msgEl.style.color=color; msgEl.textContent=text; } }
+    setMsg('#aaa','&#x23F3; Speichere…');
+    /* Check if nickname already has entry for this set */
+    supabaseClient
+        .from('leaderboard')
+        .select('id,score')
+        .eq('set_id', currentOnlineSetId)
+        .eq('nickname', nickname)
+        .limit(1)
+        .then(function(res){
+            if(res.error){ setMsg('#f44','Fehler: '+res.error.message); return; }
+            var existing = res.data && res.data[0];
+            if(existing){
+                if(currentScore > existing.score){
+                    /* Update with new highscore */
+                    supabaseClient.from('leaderboard').update({
+                        score: currentScore,
+                        correct_answers: correctCount,
+                        wrong_answers: wrongCount,
+                        game_mode: (gameMode==='snake')?'snake':'pong'
+                    }).eq('id', existing.id).then(function(r){
+                        if(r.error){ setMsg('#f44','Fehler: '+r.error.message); return; }
+                        setMsg('#00f260','&#x1F525; Neuer Highscore! +' + (currentScore - existing.score) + ' P');
+                        if(document.getElementById('lb-submit-area')) document.getElementById('lb-submit-area').style.display='none';
+                        loadLeaderboard(currentOnlineSetId, topic);
+                    });
+                } else {
+                    /* Existing score is better */
+                    setMsg('#aaa','Dein Highscore für dieses Set: '+existing.score+' P');
+                    if(document.getElementById('lb-submit-area')) document.getElementById('lb-submit-area').style.display='none';
+                    loadLeaderboard(currentOnlineSetId, topic);
+                }
+            } else {
+                /* New entry */
+                supabaseClient.from('leaderboard').insert({
+                    nickname: nickname,
+                    score: currentScore,
+                    correct_answers: correctCount,
+                    wrong_answers: wrongCount,
+                    game_mode: (gameMode==='snake')?'snake':'pong',
+                    set_topic: topic,
+                    set_id: currentOnlineSetId
+                }).then(function(r){
+                    if(r.error){ setMsg('#f44','Fehler: '+r.error.message); return; }
+                    setMsg('#00f260','&#x2705; Eingetragen!');
+                    if(document.getElementById('lb-submit-area')) document.getElementById('lb-submit-area').style.display='none';
+                    loadLeaderboard(currentOnlineSetId, topic);
+                });
+            }
+        })
+        .catch(function(){ setMsg('#f44','Verbindungsfehler'); });
+}
+
+/* ============ SAFARI BANNER ============ */
+
+(function(){
+    var isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    var dismissed = localStorage.getItem('safari-banner-dismissed');
+    if(isTouch && !dismissed){
+        document.getElementById('safari-banner').style.display = 'block';
+    }
+    var closeBtn = document.getElementById('close-banner-btn');
+    if(closeBtn){
+        closeBtn.addEventListener('click', function(){
+            document.getElementById('safari-banner').style.display = 'none';
+            localStorage.setItem('safari-banner-dismissed','1');
+        });
+        closeBtn.addEventListener('touchend', function(e){
+            e.preventDefault();
+            document.getElementById('safari-banner').style.display = 'none';
+            localStorage.setItem('safari-banner-dismissed','1');
+        });
+    }
+})();
+
+/* ============ INIT ============ */
+
+document.getElementById('mode-snake').classList.add('selected');
+document.getElementById('skin-section').classList.remove('hidden');
+activeSnakeSkin = localStorage.getItem('snake-skin-active') || 'default';
+activePongSkin = localStorage.getItem('pong-skin-active') || 'default';
+buildSkinShop();
+loadSavedSets();
+loadAnkiData();
+loadCustomSkin();
+loadCustomPongSkin();
+applySnakeSkin();
+applyPongSkin();
+updateShopSelection();
+updateStartBtn();
+
+/* Online features */
+addBtnHandler(document.getElementById('refresh-online-sets-btn'), function(){ loadOnlineSets(); });
+addBtnHandler(document.getElementById('menu-lb-btn'), function(){
+    var panel = document.getElementById('menu-lb-panel');
+    if(panel.style.display === 'none'){
+        panel.style.display = 'block';
+        loadMenuLeaderboard();
+    } else {
+        panel.style.display = 'none';
+    }
+});
+document.getElementById('online-username').addEventListener('input', function(){
+    onlineUsername = this.value.trim();
+    if(onlineUsername) localStorage.setItem('lb-nickname', onlineUsername);
+});
+addBtnHandler(document.getElementById('lb-submit-btn'), function(){
+    var nick = (document.getElementById('lb-nickname').value || '').trim();
+    if(!nick){ document.getElementById('lb-submit-msg').style.color='#f44'; document.getElementById('lb-submit-msg').textContent='Bitte einen Namen eingeben.'; return; }
+    localStorage.setItem('lb-nickname', nick);
+    submitScore(nick);
+});
+/* ============ SPLASH + GAME SELECT ============ */
+(function(){
+  /* Splash canvas animation */
+  var sc = document.getElementById('splash-canvas');
+  var sctx = sc.getContext('2d');
+  function resizeSplash(){
+    sc.width = window.innerWidth; sc.height = window.innerHeight;
+    sctx.fillStyle = '#000'; sctx.fillRect(0,0,sc.width,sc.height);
+  }
+  resizeSplash();
+  window.addEventListener('resize', resizeSplash);
+
+  /* Create animated snakes */
+  var splashSnakes = [];
+  for(var si=0; si<6; si++){
+    var snk = {
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      angle: Math.random() * Math.PI * 2,
+      targetAngle: Math.random() * Math.PI * 2,
+      segments: [],
+      speed: 2.2 + Math.random() * 1.4,
+      turnSpeed: 0.014 + Math.random() * 0.008,
+      length: 120 + Math.floor(Math.random() * 50),
+      maxWidth: 14 + Math.random() * 8,
+      alpha: 0.50 + Math.random() * 0.15,
+      wanderTimer: Math.floor(Math.random() * 180)
+    };
+    for(var sj=0; sj<snk.length; sj++){
+      snk.segments.push({x: snk.x, y: snk.y});
+    }
+    splashSnakes.push(snk);
+  }
+
+  /* Mouse / touch velocity → snake speed boost */
+  var mouseBoost = 1.0;
+  var lastMX = 0, lastMY = 0;
+  var mouseFirstSeen = 0;   /* timestamp of first mouse event */
+  var mouseWarmup = false;  /* becomes true 1.5s after first move */
+  function applyMouseVel(cx, cy){
+    if(!mouseFirstSeen){
+      /* Very first event: just record position, start warmup timer */
+      mouseFirstSeen = Date.now();
+      lastMX = cx; lastMY = cy;
+      setTimeout(function(){ mouseWarmup = true; }, 1500);
+      return;
+    }
+    if(!mouseWarmup){
+      /* Still in warmup — update position but no boost */
+      lastMX = cx; lastMY = cy;
+      return;
+    }
+    var dx = cx - lastMX, dy = cy - lastMY;
+    var vel = Math.sqrt(dx*dx + dy*dy);
+    /* dead zone below 12px — slow movement changes nothing */
+    var effective = Math.max(0, vel - 12);
+    var target = 1.0 + effective * 0.14;
+    if(target > mouseBoost) mouseBoost = target;
+    lastMX = cx; lastMY = cy;
+  }
+  document.addEventListener('mousemove', function(e){ applyMouseVel(e.clientX, e.clientY); });
+  document.addEventListener('touchmove', function(e){
+    if(e.touches[0]) applyMouseVel(e.touches[0].clientX, e.touches[0].clientY);
+  }, {passive:true});
+
+  var splashRunning = true;
+  function splashLoop(){
+    if(!splashRunning) return;
+    mouseBoost = Math.max(1.0, mouseBoost * 0.93);
+    sctx.fillStyle = 'rgba(0,0,0,0.14)';
+    sctx.fillRect(0,0,sc.width,sc.height);
+    splashSnakes.forEach(function(sn){
+      /* smooth wander: nudge target angle every ~40 frames for organic curves */
+      sn.wanderTimer++;
+      if(sn.wanderTimer % 70 === 0){
+        sn.targetAngle = sn.angle + (Math.random()-0.5) * Math.PI * 0.5;
+      }
+      /* steer smoothly toward target */
+      var diff = sn.targetAngle - sn.angle;
+      while(diff > Math.PI) diff -= Math.PI*2;
+      while(diff < -Math.PI) diff += Math.PI*2;
+      sn.angle += diff * sn.turnSpeed;
+      /* move */
+      var spd = sn.speed * mouseBoost;
+      var nx = sn.x + Math.cos(sn.angle)*spd;
+      var ny = sn.y + Math.sin(sn.angle)*spd;
+      if(nx < 20 || nx > sc.width-20){ sn.angle = Math.PI - sn.angle; sn.targetAngle = sn.angle; }
+      if(ny < 20 || ny > sc.height-20){ sn.angle = -sn.angle; sn.targetAngle = sn.angle; }
+      sn.x += Math.cos(sn.angle)*spd;
+      sn.y += Math.sin(sn.angle)*spd;
+      sn.segments.unshift({x:sn.x, y:sn.y});
+      if(sn.segments.length > sn.length) sn.segments.pop();
+
+      /* draw smooth bezier body */
+      var segs = sn.segments;
+      var slen = segs.length;
+      if(slen < 4) return;
+      sctx.lineCap = 'round';
+      sctx.lineJoin = 'round';
+      /* midpoints for smooth C1 spline */
+      var mids = [];
+      for(var mi=0; mi<slen-1; mi++){
+        mids.push({x:(segs[mi].x+segs[mi+1].x)*0.5, y:(segs[mi].y+segs[mi+1].y)*0.5});
+      }
+      var nm = mids.length; /* = slen-1 */
+      var split = Math.floor(nm * 0.35); /* tail section = last 35% of segments */
+
+      /* --- front 65% of body: full opacity --- */
+      sctx.beginPath();
+      sctx.moveTo(mids[0].x, mids[0].y);
+      for(var bi=0; bi<nm-split-1; bi++){
+        sctx.quadraticCurveTo(segs[bi+1].x, segs[bi+1].y, mids[bi+1].x, mids[bi+1].y);
+      }
+      sctx.lineWidth = sn.maxWidth * 0.85;
+      sctx.strokeStyle = 'rgba(255,255,255,'+sn.alpha+')';
+      sctx.stroke();
+
+      /* --- tail 35%: taper width + fade out --- */
+      for(var ti=nm-split-1; ti<nm-1; ti++){
+        var tf = (ti-(nm-split-1)) / (split); /* 0=start of tail, 1=end */
+        sctx.beginPath();
+        sctx.moveTo(mids[ti].x, mids[ti].y);
+        sctx.quadraticCurveTo(segs[ti+1].x, segs[ti+1].y, mids[ti+1].x, mids[ti+1].y);
+        sctx.lineWidth = Math.max(1, sn.maxWidth * 0.85 * (1 - tf * 0.85));
+        sctx.strokeStyle = 'rgba(255,255,255,'+(sn.alpha*(1-tf))+')';
+        sctx.stroke();
+      }
+      /* head glow */
+      var hx = segs[0].x, hy = segs[0].y;
+      var hr = sn.maxWidth * 0.58;
+      var grd = sctx.createRadialGradient(hx,hy,0,hx,hy,hr*3);
+      grd.addColorStop(0,'rgba(255,255,255,'+Math.min(0.55,sn.alpha*2.8)+')');
+      grd.addColorStop(1,'rgba(255,255,255,0)');
+      sctx.beginPath(); sctx.arc(hx,hy,hr*3,0,Math.PI*2);
+      sctx.fillStyle = grd; sctx.fill();
+      /* head solid */
+      sctx.beginPath(); sctx.arc(hx,hy,hr,0,Math.PI*2);
+      sctx.fillStyle='rgba(255,255,255,'+Math.min(1,sn.alpha*2.4)+')';
+      sctx.fill();
+      /* eyes */
+      var perp = sn.angle+Math.PI/2;
+      var eLat=hr*0.50, eFwd=hr*0.20, eR=hr*0.30;
+      var e1x=hx+Math.cos(perp)*eLat+Math.cos(sn.angle)*eFwd;
+      var e1y=hy+Math.sin(perp)*eLat+Math.sin(sn.angle)*eFwd;
+      var e2x=hx-Math.cos(perp)*eLat+Math.cos(sn.angle)*eFwd;
+      var e2y=hy-Math.sin(perp)*eLat+Math.sin(sn.angle)*eFwd;
+      sctx.fillStyle='#fff';
+      sctx.beginPath(); sctx.arc(e1x,e1y,eR,0,Math.PI*2); sctx.fill();
+      sctx.beginPath(); sctx.arc(e2x,e2y,eR,0,Math.PI*2); sctx.fill();
+      var pOff=eR*0.34;
+      sctx.fillStyle='#000';
+      sctx.beginPath(); sctx.arc(e1x+Math.cos(sn.angle)*pOff,e1y+Math.sin(sn.angle)*pOff,eR*0.5,0,Math.PI*2); sctx.fill();
+      sctx.beginPath(); sctx.arc(e2x+Math.cos(sn.angle)*pOff,e2y+Math.sin(sn.angle)*pOff,eR*0.5,0,Math.PI*2); sctx.fill();
+    });
+    requestAnimationFrame(splashLoop);
+  }
+  /* Initial black fill */
+  sctx.fillStyle = '#000';
+  sctx.fillRect(0,0,sc.width,sc.height);
+  splashLoop();
+
+  function enterFromSplash(){
+    splashRunning = false;
+    var splash = document.getElementById('splash-screen');
+    splash.style.transition = 'opacity 0.5s ease';
+    splash.style.opacity = '0';
+    setTimeout(function(){
+      splash.style.display = 'none';
+      document.getElementById('game-select-screen').style.display = 'flex';
+    }, 500);
+  }
+
+  document.getElementById('splash-enter-btn').addEventListener('click', enterFromSplash);
+
+  /* Game select state */
+  var gsSelectedGame = null;
+  var gsSelectedPlay = 'classic';
+  var gsSelectedPong = 'pong-solo';
+
+  /* Card click = select that game */
+  document.querySelectorAll('.gs-card').forEach(function(card){
+    card.addEventListener('click', function(e){
+      /* If click was on a sub-button, handle only that */
+      if(e.target.closest('.gs-sub-btn')) return;
+      /* Select this card */
+      document.querySelectorAll('.gs-card').forEach(function(c){ c.classList.remove('gs-selected'); });
+      card.classList.add('gs-selected');
+      gsSelectedGame = card.getAttribute('data-game');
+      /* Enable continue */
+      var btn = document.getElementById('gs-continue-btn');
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+    });
+    /* Sub-buttons */
+    card.querySelectorAll('.gs-sub-btn').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        /* Select this card too */
+        document.querySelectorAll('.gs-card').forEach(function(c){ c.classList.remove('gs-selected'); });
+        card.classList.add('gs-selected');
+        gsSelectedGame = card.getAttribute('data-game');
+        /* Toggle within group */
+        card.querySelectorAll('.gs-sub-btn').forEach(function(b){
+          b.style.borderColor = '#2a2a2a';
+          b.style.color = '#909090';
+        });
+        this.style.borderColor = '#fff';
+        this.style.color = '#fff';
+        if(this.getAttribute('data-play')) gsSelectedPlay = this.getAttribute('data-play');
+        if(this.getAttribute('data-pong')) gsSelectedPong = this.getAttribute('data-pong');
+        /* Enable continue */
+        var contBtn = document.getElementById('gs-continue-btn');
+        contBtn.style.opacity = '1';
+        contBtn.style.pointerEvents = 'auto';
+      });
+    });
+  });
+
+  document.getElementById('gs-continue-btn').addEventListener('click', function(){
+    if(!gsSelectedGame) return;
+    /* Apply selection to hidden mode-cards */
+    if(gsSelectedGame === 'snake'){
+      var snakeCard = document.querySelector('.mode-card[data-mode="snake"]');
+      if(snakeCard) snakeCard.click();
+      /* Apply play mode */
+      var playRadio = document.querySelector('input[name="play-mode"][value="' + (gsSelectedPlay==='free'?'free':'classic') + '"]');
+      if(playRadio){ playRadio.checked = true; playRadio.dispatchEvent(new Event('change')); }
+      /* Update header */
+      document.getElementById('setup-game-label').textContent = '🐍 Snake';
+      document.getElementById('setup-mode-label').textContent = gsSelectedPlay==='free' ? 'Free Play · Kein Game Over' : 'Klassisch · 3 Leben';
+    } else {
+      var pongCard = document.querySelector('.mode-card[data-mode="pong"]');
+      if(pongCard) pongCard.click();
+      /* Apply pong mode */
+      var pongRadio = document.querySelector('input[name="pong-mode"][value="' + gsSelectedPong + '"]');
+      if(pongRadio){ pongRadio.checked = true; pongRadio.dispatchEvent(new Event('change')); }
+      document.getElementById('setup-game-label').textContent = '🏓 Pong';
+      document.getElementById('setup-mode-label').textContent = gsSelectedPong==='pong-multi' ? 'Multiplayer · 2 Spieler' : 'Einzelspieler · vs KI';
+    }
+    /* Switch screens */
+    document.getElementById('game-select-screen').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'block';
+    window.scrollTo(0,0);
+  });
+
+  /* Back button from setup → game select */
+  document.getElementById('back-to-game-select-btn').addEventListener('click', function(){
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('game-select-screen').style.display = 'flex';
+    window.scrollTo(0,0);
+  });
+
+  /* ---- Setup tab switching ---- */
+  document.querySelectorAll('.setup-tab-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.setup-tab-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      var tab = btn.getAttribute('data-setup-tab');
+      document.getElementById('setup-tab-lernset').style.display = (tab === 'lernset') ? '' : 'none';
+      document.getElementById('setup-tab-skin').style.display = (tab === 'skin') ? '' : 'none';
+      window.scrollTo(0,0);
+    });
+  });
+
+  /* ---- Sync sticky footer with setup-screen visibility ---- */
+  var stickyFooter = document.getElementById('setup-sticky-footer');
+  new MutationObserver(function(){
+    var visible = document.getElementById('setup-screen').style.display !== 'none';
+    stickyFooter.style.display = visible ? 'block' : 'none';
+  }).observe(document.getElementById('setup-screen'), {attributes:true, attributeFilter:['style']});
+})();
+
+initSupabase();
+
+})();
+</script>
+</body>
+</html>
