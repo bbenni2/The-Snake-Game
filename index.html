@@ -99,9 +99,11 @@ canvas#gameCanvas{display:block;margin:0 auto;background:#000;}
 .gameover-box .stat{font-size:.95rem;margin-bottom:6px;color:var(--text-2);}
 .gameover-box .stat-val{color:#fff;font-weight:700;}
 .gameover-buttons{display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap;}
-.mobile-controls{display:none;margin-top:8px;text-align:center;}
-.mobile-controls button{width:60px;height:60px;font-size:1.4rem;border-radius:12px;background:var(--surface);border:1px solid var(--border);color:var(--text-2);}
-.mobile-controls .row{display:flex;justify-content:center;gap:6px;margin-bottom:6px;}
+.mobile-controls{display:none;margin-top:10px;text-align:center;padding:0 8px;}
+.mobile-controls button{width:80px;height:80px;font-size:2rem;border-radius:16px;background:rgba(255,255,255,0.07);border:1px solid var(--border);color:rgba(255,255,255,0.7);user-select:none;-webkit-user-select:none;touch-action:none;-webkit-tap-highlight-color:transparent;transition:background 0.08s,transform 0.08s;}
+.mobile-controls button:active{background:rgba(255,255,255,0.18);transform:scale(0.92);}
+.mobile-controls .row{display:flex;justify-content:center;gap:8px;margin-bottom:8px;}
+.mobile-controls .row .placeholder{width:80px;height:80px;}
 .scoreboard{margin-top:10px;background:var(--surface);border-radius:10px;padding:8px 14px;display:inline-block;font-size:.85rem;border:1px solid var(--border);}
 .skin-preview-container{display:flex;align-items:center;gap:14px;margin-top:10px;flex-wrap:wrap;}
 .shop-tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
@@ -450,6 +452,7 @@ D) Gelb</div>
 <span id="hud-freeplay-badge" class="hidden" style="color:#00f260;font-weight:700;">Free Play</span>
 </div>
 <canvas id="gameCanvas" width="600" height="600"></canvas>
+<div id="swipe-hint" style="display:none;position:absolute;bottom:20%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.72);border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:12px 22px;color:rgba(255,255,255,0.85);font-size:0.88rem;font-weight:600;text-align:center;pointer-events:none;z-index:5;white-space:nowrap;">← Wische oder tippe Pfeile →</div>
 <div id="quiz-overlay">
 <div class="quiz-box">
 <div class="player-indicator hidden" id="player-indicator"></div>
@@ -493,8 +496,9 @@ D) Gelb</div>
 </div>
 <div class="mobile-controls" id="mobile-controls">
 <div id="snake-controls">
-<div class="row"><button id="m-up">&#9650;</button></div>
+<div class="row"><div class="placeholder"></div><button id="m-up">&#9650;</button><div class="placeholder"></div></div>
 <div class="row"><button id="m-left">&#9664;</button><button id="m-down">&#9660;</button><button id="m-right">&#9654;</button></div>
+<div style="margin-top:6px;font-size:0.7rem;color:rgba(255,255,255,0.3);letter-spacing:0.05em;">Tippen · Wischen</div>
 </div>
 <div id="pong-controls" style="display:none;justify-content:space-around;width:100%;padding:4px 0;">
 <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
@@ -529,6 +533,7 @@ var freePlayMode = false;
 var questions = [];
 var currentTopic = '';
 var customSkinImg = null;
+var customSkinCfg = null;   /* colour cfg sampled from uploaded image */
 var customPongSkinImg = null;
 var userSnakeImg = null;
 var userPongImg = null;
@@ -1006,63 +1011,50 @@ addBtnHandler(document.getElementById('export-btn'), function(){
     a.click();
 });
 
-/* Template canvas – format: 4×60px tiles (Kopf|Körper|Schwanz|Futter) */
+/*
+ * Template canvas – 4 colour swatches (240×60 px).
+ * The skin system now samples the AVERAGE COLOUR of each 60×60 tile and uses
+ * it with the bezier renderer.  So the user just paints each tile in their
+ * desired colour – no need to draw detailed artwork.
+ * Tile order: Kopf | Körper | Schwanz | Futter(unused-auto)
+ */
 function drawTemplateCanvas(){
     var tc = document.getElementById('template-canvas');
     var tctx = tc.getContext('2d');
-    tctx.fillStyle = '#0a0a2e';
-    tctx.fillRect(0,0,240,60);
 
-    /* tile outlines + labels */
-    var labels = ['Kopf','Körper','Schwanz','Futter'];
+    /* example colours shown in the template */
+    var exColors = ['#00e87a','#00b85a','#008040','#ffcc33'];
+    var labels   = ['Kopf','Körper','Schwanz','(auto)'];
+
     for(var i=0;i<4;i++){
-        tctx.strokeStyle = 'rgba(255,255,255,0.18)';
-        tctx.lineWidth = 1;
-        tctx.strokeRect(i*60+0.5, 0.5, 59, 59);
-        tctx.fillStyle = 'rgba(255,255,255,0.35)';
-        tctx.font = '9px sans-serif';
+        var x = i*60;
+        /* solid colour fill */
+        tctx.fillStyle = exColors[i];
+        tctx.fillRect(x, 0, 60, 60);
+
+        /* subtle inner gradient to show it can be nuanced */
+        var gr = tctx.createRadialGradient(x+20,15,0, x+30,30,40);
+        gr.addColorStop(0,'rgba(255,255,255,0.22)');
+        gr.addColorStop(1,'rgba(0,0,0,0.18)');
+        tctx.fillStyle=gr; tctx.fillRect(x,0,60,60);
+
+        /* tile border */
+        tctx.strokeStyle='rgba(255,255,255,0.5)';
+        tctx.lineWidth=1;
+        tctx.strokeRect(x+0.5,0.5,59,59);
+
+        /* label */
+        tctx.fillStyle = i===3 ? 'rgba(255,255,255,0.4)' : '#fff';
+        tctx.font = 'bold 9px sans-serif';
         tctx.textAlign = 'center';
-        tctx.fillText(labels[i], i*60+30, 56);
+        tctx.textBaseline = 'alphabetic';
+        tctx.fillText(labels[i], x+30, 56);
     }
 
-    /* Kopf – bright circle + glow + eyes */
-    var hx=30, hy=28, hr=18;
-    var grd=tctx.createRadialGradient(hx,hy,0,hx,hy,hr*1.8);
-    grd.addColorStop(0,'rgba(0,242,96,0.35)'); grd.addColorStop(1,'rgba(0,242,96,0)');
-    tctx.beginPath(); tctx.arc(hx,hy,hr*1.8,0,Math.PI*2); tctx.fillStyle=grd; tctx.fill();
-    var g1=tctx.createRadialGradient(hx-3,hy-3,0,hx,hy,hr);
-    g1.addColorStop(0,'#00f260'); g1.addColorStop(1,'#008a38');
-    tctx.fillStyle=g1; tctx.beginPath(); tctx.arc(hx,hy,hr,0,Math.PI*2); tctx.fill();
-    tctx.fillStyle='#fff';
-    tctx.beginPath(); tctx.arc(36,22,4.5,0,Math.PI*2); tctx.fill();
-    tctx.beginPath(); tctx.arc(36,34,4.5,0,Math.PI*2); tctx.fill();
-    tctx.fillStyle='#111';
-    tctx.beginPath(); tctx.arc(38,22,2.5,0,Math.PI*2); tctx.fill();
-    tctx.beginPath(); tctx.arc(38,34,2.5,0,Math.PI*2); tctx.fill();
-
-    /* Körper – medium circle */
-    var bx=90, by=28, br=15;
-    var g2=tctx.createRadialGradient(bx-3,by-3,0,bx,by,br);
-    g2.addColorStop(0,'#40e060'); g2.addColorStop(1,'#0a8a3a');
-    tctx.fillStyle=g2; tctx.beginPath(); tctx.arc(bx,by,br,0,Math.PI*2); tctx.fill();
-
-    /* Schwanz – small fading circle */
-    var sx=150, sy=30, sr=10;
-    var g3=tctx.createRadialGradient(sx-2,sy-2,0,sx,sy,sr);
-    g3.addColorStop(0,'rgba(48,176,80,0.9)'); g3.addColorStop(1,'rgba(6,90,42,0.4)');
-    tctx.fillStyle=g3; tctx.beginPath(); tctx.arc(sx,sy,sr,0,Math.PI*2); tctx.fill();
-
-    /* Futter – glowing circle with '?' */
-    var fx=210, fy=28;
-    var gf=tctx.createRadialGradient(fx,fy,0,fx,fy,20);
-    gf.addColorStop(0,'rgba(255,200,50,0.5)'); gf.addColorStop(1,'rgba(255,80,50,0)');
-    tctx.beginPath(); tctx.arc(fx,fy,20,0,Math.PI*2); tctx.fillStyle=gf; tctx.fill();
-    tctx.fillStyle='#ffcc33';
-    tctx.beginPath(); tctx.arc(fx,fy,13,0,Math.PI*2); tctx.fill();
-    tctx.fillStyle='#fff';
-    tctx.font='bold 14px sans-serif'; tctx.textAlign='center'; tctx.textBaseline='middle';
-    tctx.fillText('?',fx,fy+1);
-    tctx.textBaseline='alphabetic';
+    /* small snake preview in the last tile to hint at how it looks */
+    tctx.fillStyle='rgba(0,0,0,0.35)';
+    tctx.font='18px sans-serif'; tctx.textAlign='center'; tctx.textBaseline='middle';
+    tctx.fillText('🐍', 210, 28);
 }
 drawTemplateCanvas();
 
@@ -1300,25 +1292,28 @@ function drawSnakeSkinGeneric(canvas, cfg){
 
     /* shadow */
     cx.beginPath(); cx.moveTo(pmids[0].x,pmids[0].y);
-    for(var bi=0;bi<pnm-psplit-1;bi++)
+    for(var bi=0;bi<pnm-1;bi++)
         cx.quadraticCurveTo(pts[bi+1].x,pts[bi+1].y,pmids[bi+1].x,pmids[bi+1].y);
     cx.lineWidth=pmaxW+3; cx.strokeStyle='rgba(0,0,0,0.30)'; cx.stroke();
 
-    /* body */
+    /* body with linear gradient – anchored to head (pts[0]) and tail (pts[last]) */
+    var pGrad = cx.createLinearGradient(pts[0].x,pts[0].y,pts[pts.length-1].x,pts[pts.length-1].y);
+    pGrad.addColorStop(0.0,  cfg.body[0]);
+    pGrad.addColorStop(0.45, cfg.body[0]);
+    pGrad.addColorStop(1.0,  cfg.tail[0]);
     cx.beginPath(); cx.moveTo(pmids[0].x,pmids[0].y);
-    for(var bi=0;bi<pnm-psplit-1;bi++)
+    for(var bi=0;bi<pnm-1;bi++)
         cx.quadraticCurveTo(pts[bi+1].x,pts[bi+1].y,pmids[bi+1].x,pmids[bi+1].y);
-    cx.lineWidth=pmaxW; cx.strokeStyle=cfg.body[0]; cx.stroke();
+    cx.lineWidth=pmaxW; cx.strokeStyle=pGrad; cx.stroke();
 
-    /* tail taper */
-    for(var ti=pnm-psplit-1;ti<pnm-1;ti++){
-        var tf=(ti-(pnm-psplit-1))/psplit;
-        cx.beginPath();
-        cx.moveTo(pmids[ti].x,pmids[ti].y);
+    /* taper last 35 % */
+    var pTaperFrom=Math.floor(pnm*0.65), pTaperSpan=Math.max(1,pnm-1-pTaperFrom);
+    cx.strokeStyle=pGrad;
+    for(var ti=pTaperFrom;ti<pnm-1;ti++){
+        var tf=(ti-pTaperFrom)/pTaperSpan;
+        cx.beginPath(); cx.moveTo(pmids[ti].x,pmids[ti].y);
         cx.quadraticCurveTo(pts[ti+1].x,pts[ti+1].y,pmids[ti+1].x,pmids[ti+1].y);
-        cx.lineWidth=Math.max(1,pmaxW*(1-tf*0.85));
-        cx.strokeStyle=hexToRgba(cfg.tail[0],1-tf*0.9);
-        cx.stroke();
+        cx.lineWidth=Math.max(1,pmaxW*(1-tf*0.90)); cx.stroke();
     }
 
     /* head glow */
@@ -1397,13 +1392,50 @@ var PONG_SKINS = [
     {id:'candy',      name:'Candy',         cfg:{p1:['#ff9fd1','#cc2f80'], p2:['#a0f0ff','#2090c8'], ball:['#ffffff','#ffcce0']}}
 ];
 
+/*
+ * sampleCustomSkinColors – draws the 240×60 skin sheet onto a temp canvas,
+ * then averages non-transparent pixels in each 60×60 tile to extract a
+ * representative colour for head / body / tail.  The result is stored in
+ * customSkinCfg so drawSnakeDefault() can render a smooth bezier snake
+ * instead of the disconnected tile approach.
+ */
+function sampleCustomSkinColors(img){
+    var tc = document.createElement('canvas');
+    tc.width = 240; tc.height = 60;
+    var tcx = tc.getContext('2d');
+    tcx.drawImage(img, 0, 0, 240, 60);
+    function avgCol(x1, y1, w, h){
+        var d = tcx.getImageData(x1, y1, w, h).data;
+        var r=0,g=0,b=0,n=0;
+        for(var p=0;p<d.length;p+=4){
+            if(d[p+3]>60){ r+=d[p]; g+=d[p+1]; b+=d[p+2]; n++; }
+        }
+        if(!n) return '#888';
+        return 'rgb('+Math.round(r/n)+','+Math.round(g/n)+','+Math.round(b/n)+')';
+    }
+    var hc = avgCol(2,2,56,56);   /* head tile   */
+    var bc = avgCol(62,2,56,56);  /* body tile   */
+    var tc2= avgCol(122,2,56,56); /* tail tile   */
+    /* derive a slightly darker shade for the gradient stop */
+    function darker(col){
+        var m=col.match(/\d+/g);
+        return 'rgb('+Math.round(m[0]*0.6)+','+Math.round(m[1]*0.6)+','+Math.round(m[2]*0.6)+')';
+    }
+    customSkinCfg = {
+        head: [hc, darker(hc)],
+        body: [bc, darker(bc)],
+        tail: [tc2, darker(tc2)]
+    };
+}
+
 function applySnakeSkin(){
     if(activeSnakeSkin === 'default'){
-        customSkinImg = null;
+        customSkinImg = null; customSkinCfg = null;
         return;
     }
     if(activeSnakeSkin === 'custom'){
         customSkinImg = userSnakeImg;
+        if(userSnakeImg) sampleCustomSkinColors(userSnakeImg);
         return;
     }
     for(var i=0;i<SNAKE_SKINS.length;i++){
@@ -1626,11 +1658,27 @@ addBtnHandler(document.getElementById('start-btn'), function(){
     window.scrollTo(0, 0);
 
     if(gameMode === 'snake'){
+        /* Stop any lingering loop from a previous session */
+        gameRunning = false;
+        clearTimeout(gameLoopTimeout);
+        cancelAnimationFrame(snakeRenderRAF);
         if(freePlayMode) document.getElementById('hud-lives-display').classList.add('hidden');
         else document.getElementById('hud-lives-display').classList.remove('hidden');
         document.getElementById('hud-pong-score').classList.add('hidden');
         initSnake();
         setupMobileControls();
+        /* Show swipe hint on touch devices for a few seconds */
+        var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if(isTouch){
+            var hint = document.getElementById('swipe-hint');
+            hint.style.display = 'block';
+            hint.style.opacity = '1';
+            setTimeout(function(){
+                hint.style.transition = 'opacity 0.8s';
+                hint.style.opacity = '0';
+                setTimeout(function(){ hint.style.display='none'; hint.style.transition=''; }, 800);
+            }, 2200);
+        }
     } else {
         document.getElementById('hud-pong-score').classList.remove('hidden');
         if(gameMode === 'pong-multi' || freePlayMode){
@@ -1662,13 +1710,13 @@ addBtnHandler(document.getElementById('exit-btn'), function(){
 
 function snakeRenderLoopFn(){
     if(!gameRunning) return;
-    drawSnakeFrame();
+    try{ drawSnakeFrame(); } catch(err){ console.error('drawSnakeFrame error:', err); }
     snakeRenderRAF = requestAnimationFrame(snakeRenderLoopFn);
 }
 
 function initSnake(){
     snake = [];
-    for(var i=2;i>=0;i--) snake.push({x:10-i, y:10});
+    for(var i=4;i>=0;i--) snake.push({x:10-i, y:10}); /* start with 5 segments – visible on all screen sizes */
     direction = {x:1, y:0};
     nextDirection = {x:1, y:0};
     prevSnake = []; lastTickTime = 0;
@@ -1716,7 +1764,7 @@ function snakeLoop(){
         updateHud();
         if(!freePlayMode && lives <= 0){ gameOver(); return; }
         snake = [];
-        for(var j=2;j>=0;j--) snake.push({x:10-j, y:10});
+        for(var j=4;j>=0;j--) snake.push({x:10-j, y:10});
         direction = {x:1, y:0};
         nextDirection = {x:1, y:0};
         prevSnake = []; lastTickTime = 0; /* reset interpolation */
@@ -1785,12 +1833,9 @@ function drawSnakeFrame(){
         }
     }
 
-    /* Custom uploaded image skin → tile renderer; all others → splash-style */
-    if(customSkinImg && activeSnakeSkin === 'custom'){
-        drawSnakeWithSkin();
-    } else {
-        drawSnakeDefault();
-    }
+    /* All skins use the smooth bezier renderer.
+       Custom image skins use colours sampled from the uploaded sheet. */
+    drawSnakeDefault(activeSnakeSkin === 'custom' && customSkinCfg ? customSkinCfg : null);
     drawFood();
     drawParticles();
 }
@@ -1806,13 +1851,26 @@ function getInterpolatedSegs(){
     var raw = Math.min(1, (performance.now() - lastTickTime) / Math.max(1, tickDuration));
     var e   = raw * raw * (3 - 2 * raw); /* smooth-step */
     var result = [];
+
+    /*
+     * FULL-BODY SLIDE:
+     * Use prevSnake[i] as the start for EVERY segment (not prevSnake[i+segOffset]).
+     *
+     * segOffset=1 (normal move): snake[i] = prevSnake[i+1], so each segment
+     * slides from prevSnake[i] → prevSnake[i+1] = snake[i].  The whole snake
+     * flows forward as a unit – head, body AND tail all move together, so
+     * colours no longer appear to lag behind.
+     *
+     * segOffset=0 (food eaten): prevSnake[i] === snake[i] for the body
+     * (unchanged), so those stay still.  The new head (i = snake.length-1)
+     * falls back to prevSnake[last] = old head and slides forward normally.
+     */
     for(var i=0; i<snake.length; i++){
-        var curr  = snake[i];
-        var prevI = i + segOffset;
-        var prev  = (prevI < prevSnake.length) ? prevSnake[prevI]
-                                               : (prevSnake[prevSnake.length-1] || curr);
+        var curr = snake[i];
+        var prev = (i < prevSnake.length) ? prevSnake[i]
+                                          : (prevSnake[prevSnake.length-1] || curr);
         var dx = curr.x - prev.x, dy = curr.y - prev.y;
-        /* don't interpolate across edge-wraps (teleport) */
+        /* skip edge-wraps (teleports across the border) */
         if(Math.abs(dx) > 1 || Math.abs(dy) > 1){
             result.push({x: curr.x, y: curr.y});
         } else {
@@ -1824,9 +1882,14 @@ function getInterpolatedSegs(){
 
 /* Hex #rrggbb → rgba(r,g,b,alpha) — needed for tapered tail fade */
 function hexToRgba(hex, alpha){
+    if(typeof hex !== 'string') return 'rgba(128,128,128,'+alpha.toFixed(3)+')';
+    /* sampleCustomSkinColors() returns rgb(r,g,b) strings — handle those too */
+    var rgbM = hex.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/);
+    if(rgbM) return 'rgba('+rgbM[1]+','+rgbM[2]+','+rgbM[3]+','+Math.max(0,Math.min(1,alpha)).toFixed(3)+')';
     var h = hex.replace('#','');
     if(h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
     var r=parseInt(h.slice(0,2),16), g=parseInt(h.slice(2,4),16), b=parseInt(h.slice(4,6),16);
+    if(isNaN(r)||isNaN(g)||isNaN(b)) return 'rgba(128,128,128,'+alpha.toFixed(3)+')';
     return 'rgba('+r+','+g+','+b+','+Math.max(0,Math.min(1,alpha)).toFixed(3)+')';
 }
 
@@ -1838,9 +1901,9 @@ function getActiveSkinCfg(){
     return SNAKE_SKINS[0].cfg; /* fallback → classic green */
 }
 
-function drawSnakeDefault(){
+function drawSnakeDefault(cfgOverride){
     if(snake.length < 2) return;
-    var cfg = getActiveSkinCfg();
+    var cfg = cfgOverride || getActiveSkinCfg();
 
     /* Build pixel positions from interpolated grid coords, head at index 0 */
     var iSegs = getInterpolatedSegs();
@@ -1865,9 +1928,7 @@ function drawSnakeDefault(){
     var nm = mids.length;
     if(nm < 1) return;
 
-    var split    = Math.floor(nm * 0.35);
     var maxWidth = GRID * 0.76;
-    var frontEnd = nm - split - 1; /* last mid-index of front body */
 
     ctx.save();
     ctx.lineCap  = 'round';
@@ -1902,19 +1963,38 @@ function drawSnakeDefault(){
     }
 
     /* shadow */
-    drawBodyPath(0, frontEnd, maxWidth + 5, 'rgba(0,0,0,0.28)');
-    /* front 65 % body */
-    drawBodyPath(0, frontEnd, maxWidth, cfg.body[0]);
+    drawBodyPath(0, nm-1, maxWidth + 5, 'rgba(0,0,0,0.28)');
 
-    /* tail 35 %: taper + fade, skip any wrap segment */
-    for(var ti=frontEnd; ti<nm-1; ti++){
+    /*
+     * Body colour using a LINEAR GRADIENT anchored to the INTERPOLATED
+     * head (segs[0]) and tail (segs[last]) pixel positions.
+     * Because segs[0] moves every frame with the head animation, the whole
+     * gradient shifts forward each frame – so body AND tail colour flow
+     * together with the snake instead of the tail colour standing still.
+     */
+    var bodyGrad = ctx.createLinearGradient(
+        segs[0].x, segs[0].y,
+        segs[slen-1].x, segs[slen-1].y
+    );
+    bodyGrad.addColorStop(0.0,  cfg.body[0]);   /* head end  → body colour  */
+    bodyGrad.addColorStop(0.45, cfg.body[0]);   /* pure body for first 45 % */
+    bodyGrad.addColorStop(1.0,  cfg.tail[0]);   /* tail end  → tail colour  */
+
+    /* Draw full body width with the flowing gradient */
+    drawBodyPath(0, nm-1, maxWidth, bodyGrad);
+
+    /* Taper the last 35 % of the snake toward a point.
+       Re-use the same screen-space gradient so colour stays consistent. */
+    var taperFrom = Math.floor(nm * 0.65);
+    var taperSpan = Math.max(1, nm - 1 - taperFrom);
+    ctx.strokeStyle = bodyGrad;
+    for(var ti=taperFrom; ti<nm-1; ti++){
         if(wrap[ti] || wrap[ti+1]) continue;
-        var tf = (ti-frontEnd) / split;
+        var tf = (ti - taperFrom) / taperSpan;
         ctx.beginPath();
         ctx.moveTo(mids[ti].x, mids[ti].y);
         ctx.quadraticCurveTo(segs[ti+1].x, segs[ti+1].y, mids[ti+1].x, mids[ti+1].y);
-        ctx.lineWidth   = Math.max(1, maxWidth*(1-tf*0.85));
-        ctx.strokeStyle = hexToRgba(cfg.tail[0], 1-tf*0.9);
+        ctx.lineWidth = Math.max(1, maxWidth * (1 - tf * 0.90));
         ctx.stroke();
     }
 
@@ -1994,28 +2074,33 @@ function drawFood(){
         return;
     }
     var t = Date.now() / 500;
-    var glow = ctx.createRadialGradient(fx,fy,0,fx,fy,GRID/2+4);
-    glow.addColorStop(0,'rgba(255,200,50,0.8)');
+    var pulse  = 1 + Math.sin(t * 2.5) * 0.12;   /* gentle 0.88 – 1.12 scale */
+    var baseR  = GRID * 0.32 * pulse;
+    var glowR  = GRID * 0.52 * pulse;
+    var orbitR = GRID * 0.60;
+
+    var glow = ctx.createRadialGradient(fx,fy,0,fx,fy,glowR);
+    glow.addColorStop(0,'rgba(255,200,50,0.85)');
     glow.addColorStop(0.5,'rgba(255,100,50,0.4)');
     glow.addColorStop(1,'rgba(255,50,50,0)');
     ctx.fillStyle = glow;
-    ctx.beginPath(); ctx.arc(fx,fy,GRID/2+4,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(fx,fy,glowR,0,Math.PI*2); ctx.fill();
 
     ctx.fillStyle = '#ffcc33';
-    ctx.beginPath(); ctx.arc(fx,fy,10,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(fx,fy,baseR,0,Math.PI*2); ctx.fill();
 
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 14px sans-serif';
+    ctx.font = 'bold ' + Math.round(GRID * 0.44) + 'px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('?', fx, fy+1);
 
     for(var s=0;s<3;s++){
         var a = t + s*(Math.PI*2/3);
-        var sx = fx + Math.cos(a)*18;
-        var sy = fy + Math.sin(a)*18;
+        var sx = fx + Math.cos(a)*orbitR;
+        var sy = fy + Math.sin(a)*orbitR;
         ctx.fillStyle = 'rgba(255,255,100,'+(0.5+Math.sin(t*2+s)*0.3)+')';
-        ctx.beginPath(); ctx.arc(sx,sy,2.5,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(sx,sy,GRID*0.09,0,Math.PI*2); ctx.fill();
     }
 }
 
@@ -2533,7 +2618,28 @@ canvas.addEventListener('touchstart', function(e){
 }, {passive:true});
 
 canvas.addEventListener('touchmove', function(e){
-    if(gameMode === 'snake' || quizActive) return;
+    if(gameMode === 'snake'){
+        /* CRITICAL: prevent page scroll while swiping to control snake */
+        e.preventDefault();
+        if(quizActive) return;
+        var t = e.changedTouches[0];
+        var dx = t.clientX - touchStartX;
+        var dy = t.clientY - touchStartY;
+        /* Register direction as soon as swipe threshold is hit (15px), not on touchend */
+        if(Math.abs(dx) < 15 && Math.abs(dy) < 15) return;
+        var changed = false;
+        if(Math.abs(dx) > Math.abs(dy)){
+            if(dx > 0 && direction.x !== -1){ nextDirection = {x:1,y:0};  changed = true; }
+            else if(dx < 0 && direction.x !== 1){ nextDirection = {x:-1,y:0}; changed = true; }
+        } else {
+            if(dy > 0 && direction.y !== -1){ nextDirection = {x:0,y:1};  changed = true; }
+            else if(dy < 0 && direction.y !== 1){ nextDirection = {x:0,y:-1}; changed = true; }
+        }
+        /* Reset origin after each committed direction so the next swipe starts fresh */
+        if(changed){ touchStartX = t.clientX; touchStartY = t.clientY; }
+        return;
+    }
+    if(quizActive) return;
     e.preventDefault();
     var rect = canvas.getBoundingClientRect();
     var scaleY = CANVAS_SIZE / rect.height;
@@ -2552,11 +2658,12 @@ canvas.addEventListener('touchmove', function(e){
 
 canvas.addEventListener('touchend', function(e){
     if(gameMode === 'snake'){
+        /* touchend serves as fallback for very short taps that didn't reach 15px threshold */
         if(quizActive) return;
         var t = e.changedTouches[0];
         var dx = t.clientX - touchStartX;
         var dy = t.clientY - touchStartY;
-        if(Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
+        if(Math.abs(dx) < 12 && Math.abs(dy) < 12) return; /* too small, ignore */
         if(Math.abs(dx) > Math.abs(dy)){
             if(dx > 0 && direction.x !== -1) nextDirection = {x:1,y:0};
             else if(dx < 0 && direction.x !== 1) nextDirection = {x:-1,y:0};
