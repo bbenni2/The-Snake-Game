@@ -202,6 +202,12 @@ canvas#gameCanvas{width:calc(100vw - 4px)!important;height:calc(100vw - 4px)!imp
 .hud{font-size:.65rem;}
 .hud span{gap:2px;}
 }
+/* === PROGRESS SECTION === */
+.progress-vocab-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;background:var(--surface-2);font-size:.82rem;}
+.progress-vocab-term{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.progress-vocab-def{flex:1;color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.78rem;min-width:0;}
+#progress-header{cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;user-select:none;}
+#progress-header:hover #progress-arrow{color:var(--text-2);}
 /* === SETUP TABS === */
 .setup-tab-nav{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:14px;gap:4px;}
 .setup-tab-btn{flex:1;padding:10px 12px;border-radius:9px;font-size:.88rem;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .15s;color:var(--text-3);background:transparent;touch-action:manipulation;}
@@ -482,6 +488,23 @@ D) Gelb</div>
 <div id="questions-list"></div>
 <div class="q-list-more-hint hidden" id="q-list-more-hint"></div>
 <button class="btn-danger btn-small" id="clear-all-btn" style="margin-top:8px;">Alle Fragen löschen</button>
+</div>
+
+<div class="section hidden" id="progress-section">
+  <div id="progress-header" onclick="toggleProgressPanel()">
+    <div style="flex:1;">
+      <h2 style="margin-bottom:6px;">Lernfortschritt</h2>
+      <div style="background:var(--surface-3);border-radius:100px;height:8px;overflow:hidden;margin-bottom:7px;">
+        <div id="progress-bar-fill" style="height:100%;border-radius:100px;background:var(--green);transition:width .4s;width:0%;"></div>
+      </div>
+      <div id="progress-summary" style="font-size:.75rem;color:var(--text-3);display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+    <span id="progress-arrow" style="font-size:.85rem;color:var(--text-3);flex-shrink:0;transition:transform .2s;">▼</span>
+  </div>
+  <div id="progress-panel" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+    <div id="progress-vocab-list" style="max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
+    <button type="button" id="reset-progress-btn" class="btn-danger btn-small" style="margin-top:12px;width:100%;">🗑 Lernfortschritt zurücksetzen</button>
+  </div>
 </div>
 </div><!-- /tab-lernset -->
 
@@ -783,6 +806,7 @@ function setAnkiRating(q, rating){
     ankiData[key].lastSeen = turnCount;
     ankiData[key].reviewCount = (ankiData[key].reviewCount || 0) + 1;
     saveAnkiData();
+    updateProgressSection();
 }
 
 function getAnkiBadgeHtml(q){
@@ -1395,7 +1419,86 @@ function renderQuestions(){
     });
     applyQListCollapse();
     updateQToggleBtn();
+    updateProgressSection();
 }
+
+/* ============ PROGRESS SECTION ============ */
+var progressPanelOpen = false;
+
+function toggleProgressPanel(){
+    progressPanelOpen = !progressPanelOpen;
+    var panel = document.getElementById('progress-panel');
+    var arrow = document.getElementById('progress-arrow');
+    panel.style.display = progressPanelOpen ? 'block' : 'none';
+    arrow.style.transform = progressPanelOpen ? 'rotate(180deg)' : '';
+    if(progressPanelOpen) renderProgressVocabList();
+}
+
+function updateProgressSection(){
+    var section = document.getElementById('progress-section');
+    if(!section) return;
+    if(questions.length === 0){ section.classList.add('hidden'); return; }
+    section.classList.remove('hidden');
+    var counts = {neu:0, nochmal:0, schwer:0, gut:0, leicht:0};
+    questions.forEach(function(q){
+        var info = getAnkiInfo(q);
+        if(!info || !info.rating) counts.neu++;
+        else if(info.rating === 1) counts.nochmal++;
+        else if(info.rating === 2) counts.schwer++;
+        else if(info.rating === 3) counts.gut++;
+        else counts.leicht++;
+    });
+    var total = questions.length;
+    var mastered = counts.gut + counts.leicht;
+    var pct = total > 0 ? Math.round(mastered / total * 100) : 0;
+    document.getElementById('progress-bar-fill').style.width = pct + '%';
+    var parts = [];
+    if(counts.neu > 0)     parts.push('<span style="color:var(--text-3)">Neu: '     + counts.neu     + '</span>');
+    if(counts.nochmal > 0) parts.push('<span style="color:var(--red)">Nochmal: '   + counts.nochmal + '</span>');
+    if(counts.schwer > 0)  parts.push('<span style="color:var(--yellow)">Schwer: '  + counts.schwer  + '</span>');
+    if(counts.gut > 0)     parts.push('<span style="color:var(--green)">Gut: '      + counts.gut     + '</span>');
+    if(counts.leicht > 0)  parts.push('<span style="color:var(--blue)">Leicht: '    + counts.leicht  + '</span>');
+    parts.push('<strong style="color:var(--text)">' + pct + '% gemeistert</strong>');
+    document.getElementById('progress-summary').innerHTML = parts.join(' · ');
+    if(progressPanelOpen) renderProgressVocabList();
+}
+
+function renderProgressVocabList(){
+    var list = document.getElementById('progress-vocab-list');
+    if(!list) return;
+    list.innerHTML = '';
+    /* Sort: nochmal → schwer → neu → gut → leicht */
+    var ratingOrder = {1:0, 2:1, 0:2, 3:3, 4:4};
+    var sorted = questions.slice().sort(function(a, b){
+        var ia = getAnkiInfo(a); var ib = getAnkiInfo(b);
+        var oa = ratingOrder[ia && ia.rating ? ia.rating : 0];
+        var ob = ratingOrder[ib && ib.rating ? ib.rating : 0];
+        return oa - ob;
+    });
+    sorted.forEach(function(q){
+        var def = q.answers[q.correct];
+        var div = document.createElement('div');
+        div.className = 'progress-vocab-item';
+        div.innerHTML = getAnkiBadgeHtml(q) +
+            '<span class="progress-vocab-term">' + escapeHtml(q.q) + '</span>' +
+            '<span class="progress-vocab-def">' + escapeHtml(def) + '</span>';
+        list.appendChild(div);
+    });
+}
+
+(function(){
+    var btn = document.getElementById('reset-progress-btn');
+    if(!btn) return;
+    addBtnHandler(btn, function(){
+        if(!confirm('Lernfortschritt für alle Vokabeln zurücksetzen?\n\nAlle Anki-Bewertungen werden gelöscht.')) return;
+        questions.forEach(function(q){
+            delete ankiData[getAnkiKey(q)];
+        });
+        saveAnkiData();
+        updateProgressSection();
+        if(progressPanelOpen) renderProgressVocabList();
+    });
+})();
 
 function updateStartBtn(){
     var btn = document.getElementById('start-btn');
@@ -2801,6 +2904,45 @@ function vocabNormalize(text){
     return text.replace(/\s*\([^)]*\)/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
+/* Levenshtein distance (for typo tolerance) */
+function levenshtein(a, b){
+    var m = a.length, n = b.length;
+    var dp = [];
+    for(var i = 0; i <= m; i++){
+        dp[i] = [i];
+        for(var j = 1; j <= n; j++){
+            if(i === 0){ dp[i][j] = j; continue; }
+            dp[i][j] = Math.min(
+                dp[i-1][j] + 1,
+                dp[i][j-1] + 1,
+                dp[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1)
+            );
+        }
+    }
+    return dp[m][n];
+}
+
+/* Tolerant match: accepts any comma/slash/semicolon segment of the correct answer,
+   plus allows ~1 typo per 6 characters (min 1 typo allowed for short words) */
+function vocabMatch(typed, correct){
+    var tNorm = vocabNormalize(typed);
+    if(!tNorm) return false;
+    var cNorm = vocabNormalize(correct);
+    /* Exact full match */
+    if(tNorm === cNorm) return true;
+    /* Split correct answer into alternatives */
+    var segments = cNorm.split(/[,\/;]+/).map(function(s){ return s.trim(); }).filter(Boolean);
+    for(var i = 0; i < segments.length; i++){
+        var seg = segments[i];
+        /* Exact segment match */
+        if(tNorm === seg) return true;
+        /* Fuzzy: allow 1 typo per 6 chars (at least 1 for words ≥ 3 chars) */
+        var allowedErrors = Math.max(1, Math.floor(seg.length / 6));
+        if(seg.length >= 3 && levenshtein(tNorm, seg) <= allowedErrors) return true;
+    }
+    return false;
+}
+
 function showQuiz(callback, scoringPlayer){
     quizActive = true;
     ankiPhase = false;
@@ -2818,13 +2960,16 @@ function showQuiz(callback, scoringPlayer){
 
     var correctDef = currentQuizQuestion.answers[currentQuizQuestion.correct];
     var correctTerm = currentQuizQuestion.q;
+    /* Safety strip: remove any leading card numbers that slipped through parsing */
+    var displayTerm = correctTerm.replace(/^\d+\s*[\.\)]\s+/, '').trim();
+    var displayDef  = correctDef.replace(/^\d+\s*[\.\)]\s+/, '').trim();
 
     /* Set question text and expected answer based on direction */
     if(vocabMode && effectiveDir === 'reverse'){
-        document.getElementById('quiz-question').textContent = correctDef;
+        document.getElementById('quiz-question').textContent = displayDef;
         currentVocabExpected = correctTerm;
     } else {
-        document.getElementById('quiz-question').textContent = correctTerm;
+        document.getElementById('quiz-question').textContent = displayTerm;
         currentVocabExpected = correctDef;
     }
 
@@ -2887,10 +3032,8 @@ function handleVocabSubmit(){
     quizAnswered = true;
 
     var correctRaw = currentVocabExpected;
-    var correctNorm = vocabNormalize(correctRaw);
-    var typedNorm = vocabNormalize(typed);
 
-    currentQuizCorrect = (typedNorm === correctNorm);
+    currentQuizCorrect = vocabMatch(typed, correctRaw);
     vocabInput.disabled = true;
     document.getElementById('vocab-submit-btn').disabled = true;
 
