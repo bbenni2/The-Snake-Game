@@ -156,6 +156,11 @@ canvas#gameCanvas{display:block;margin:0 auto;background:#000;}
 .gs-card{transition:all .2s;}
 .gs-card:hover{transform:translateY(-3px);box-shadow:0 24px 60px rgba(0,0,0,.5);border-color:var(--border-hover)!important;}
 .gs-card.gs-selected{border-color:#fff!important;background:rgba(255,255,255,.03)!important;}
+/* === DIRECTION BUTTONS === */
+.dir-btn{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;cursor:pointer;text-align:center;transition:all .15s;font-family:inherit;color:var(--text);touch-action:manipulation;}
+.dir-btn:hover{border-color:var(--border-hover);}
+.dir-btn.selected{border-color:#fff;background:rgba(255,255,255,.04);}
+.dir-btn.selected span:first-child{color:#fff;}
 /* === PDF DROP ZONE === */
 .pdf-drop-zone{border:2px dashed var(--border);border-radius:14px;padding:36px 20px;text-align:center;cursor:pointer;transition:all .18s;background:var(--surface-2);position:relative;}
 .pdf-drop-zone:hover,.pdf-drop-zone.drag-over{border-color:#fff;background:rgba(255,255,255,.04);}
@@ -344,7 +349,24 @@ canvas#gameCanvas{width:calc(100vw - 4px)!important;height:calc(100vw - 4px)!imp
 <span class="label">Vokabeln tippen</span>
 </button>
 </div>
-<p id="vocab-mode-hint" style="display:none;font-size:.8rem;color:var(--text-3);margin-top:8px;line-height:1.5;">&#x2705; Du tippst die Antwort direkt ein. Wörter in Klammern <em>(z.B. Hinweise)</em> werden beim Vergleich ignoriert.</p>
+<p id="vocab-mode-hint" style="display:none;font-size:.78rem;color:var(--text-3);margin-top:8px;margin-bottom:10px;line-height:1.5;">&#x2705; Du tippst die Antwort direkt ein. Wörter in Klammern werden ignoriert.</p>
+<div id="vocab-direction-row" style="display:none;">
+  <div style="font-size:.72rem;font-weight:700;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px;">Abfragerichtung</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button type="button" class="dir-btn selected" id="dir-forward" style="flex:1;min-width:100px;">
+      <span style="display:block;font-size:.95rem;font-weight:700;">Begriff ➜</span>
+      <span style="display:block;font-size:.72rem;color:var(--text-3);margin-top:2px;">Übersetzung tippen</span>
+    </button>
+    <button type="button" class="dir-btn" id="dir-reverse" style="flex:1;min-width:100px;">
+      <span style="display:block;font-size:.95rem;font-weight:700;">⬅ Begriff</span>
+      <span style="display:block;font-size:.72rem;color:var(--text-3);margin-top:2px;">Begriff tippen</span>
+    </button>
+    <button type="button" class="dir-btn" id="dir-random" style="flex:1;min-width:100px;">
+      <span style="display:block;font-size:.95rem;font-weight:700;">🔀 Gemischt</span>
+      <span style="display:block;font-size:.72rem;color:var(--text-3);margin-top:2px;">Zufällige Richtung</span>
+    </button>
+  </div>
+</div>
 </div>
 
 <div class="section">
@@ -611,6 +633,8 @@ document.getElementById('ki-prompt').textContent = KI_PROMPT;
 var gameMode = 'snake';
 var freePlayMode = false;
 var vocabMode = false;
+var vocabDirection = 'forward'; /* 'forward' | 'reverse' | 'random' */
+var currentVocabExpected = '';  /* what the user must type (set per question) */
 var questions = [];
 var currentTopic = '';
 var customSkinImg = null;
@@ -839,25 +863,46 @@ document.querySelectorAll('.method-card').forEach(function(card){
     card.addEventListener('touchend', function(e){ e.preventDefault(); handler(); });
 });
 
-/* Vocab / MC mode toggle */
+/* Vocab / MC mode toggle + direction buttons */
 (function(){
-    var mcBtn = document.getElementById('quiz-mode-mc');
+    var mcBtn    = document.getElementById('quiz-mode-mc');
     var vocabBtn = document.getElementById('quiz-mode-vocab');
-    var hint = document.getElementById('vocab-mode-hint');
+    var hint     = document.getElementById('vocab-mode-hint');
+    var dirRow   = document.getElementById('vocab-direction-row');
+
     function selectMC(){
         vocabMode = false;
         mcBtn.classList.add('selected');
         vocabBtn.classList.remove('selected');
         hint.style.display = 'none';
+        dirRow.style.display = 'none';
     }
     function selectVocab(){
         vocabMode = true;
         vocabBtn.classList.add('selected');
         mcBtn.classList.remove('selected');
         hint.style.display = 'block';
+        dirRow.style.display = 'block';
     }
     addBtnHandler(mcBtn, selectMC);
     addBtnHandler(vocabBtn, selectVocab);
+
+    /* Direction buttons */
+    var dirBtns = {
+        'dir-forward': 'forward',
+        'dir-reverse': 'reverse',
+        'dir-random':  'random'
+    };
+    Object.keys(dirBtns).forEach(function(id){
+        var btn = document.getElementById(id);
+        var dir = dirBtns[id];
+        function handler(){
+            document.querySelectorAll('.dir-btn').forEach(function(b){ b.classList.remove('selected'); });
+            btn.classList.add('selected');
+            vocabDirection = dir;
+        }
+        addBtnHandler(btn, handler);
+    });
 })();
 
 /* Copy prompt */
@@ -1142,33 +1187,48 @@ addBtnHandler(document.getElementById('parse-vocab-list-btn'), function(){
     }
 
     /* Reconstruct text lines from PDF text items using Y-coordinate grouping.
-       Items on the same Y → same line; large X-gap → tab separator (two columns). */
+       Items on the same Y → same line.
+       The LARGEST gap within a row is treated as the two-column separator (→ tab). */
     function extractLinesFromPage(content){
-        /* Group by rounded Y (PDF Y-axis is bottom-up) */
         var rows = {};
         content.items.forEach(function(item){
-            var yKey = Math.round(item.transform[5] / 2) * 2; /* 2pt bucket */
+            var yKey = Math.round(item.transform[5] / 2) * 2;
             if(!rows[yKey]) rows[yKey] = [];
             rows[yKey].push({x: item.transform[4], w: item.width || 0, text: item.str});
         });
 
-        /* Sort Y descending (top of page first) */
         var ys = Object.keys(rows).map(Number).sort(function(a,b){ return b-a; });
         var lines = [];
         ys.forEach(function(y){
             var items = rows[y].sort(function(a,b){ return a.x - b.x; });
+            if(items.length === 0) return;
+            if(items.length === 1){ if(items[0].text.trim()) lines.push(items[0].text.trim()); return; }
+
+            /* Compute gap between every consecutive pair of items (start of next − end of prev) */
+            var gaps = [];
+            for(var gi = 1; gi < items.length; gi++){
+                var prevEnd = items[gi-1].x + Math.max(items[gi-1].w, 1);
+                gaps.push(items[gi].x - prevEnd);
+            }
+
+            /* The biggest gap is the column separator candidate */
+            var maxGap = -Infinity, maxIdx = 0;
+            gaps.forEach(function(g, i){ if(g > maxGap){ maxGap = g; maxIdx = i; } });
+
+            /* Only treat it as column gap if it's > 15pt AND at least 2× the second-largest */
+            var sorted = gaps.slice().sort(function(a,b){ return b-a; });
+            var secondMax = sorted[1] !== undefined ? sorted[1] : 0;
+            var isColSep = maxGap > 15 && maxGap > secondMax * 1.8;
+
             var line = '';
-            var lastEnd = -Infinity;
-            items.forEach(function(it){
-                if(line.length > 0){
-                    var gap = it.x - lastEnd;
-                    if(gap > 40) line += '\t';       /* column gap */
-                    else if(gap > 1) line += ' ';
-                }
-                line += it.text;
-                lastEnd = it.x + it.w;
-            });
-            line = line.trim();
+            if(isColSep){
+                var left  = items.slice(0, maxIdx+1).map(function(it){ return it.text; }).join(' ').trim();
+                var right = items.slice(maxIdx+1).map(function(it){ return it.text; }).join(' ').trim();
+                if(left && right) line = left + '\t' + right;
+                else line = (left || right).trim();
+            } else {
+                line = items.map(function(it){ return it.text; }).join(' ').trim();
+            }
             if(line) lines.push(line);
         });
         return lines;
@@ -1179,7 +1239,7 @@ addBtnHandler(document.getElementById('parse-vocab-list-btn'), function(){
         /* Remove obvious non-vocabulary lines */
         var lines = rawLines.filter(function(l){
             if(!l.trim()) return false;
-            if(/^\d+$/.test(l.trim())) return false;              /* page numbers */
+            if(/^\d+[\.\)]?$/.test(l.trim())) return false;       /* "14" or "14." card numbers */
             if(/^quizlet\.com/i.test(l)) return false;
             if(/^https?:\/\//i.test(l)) return false;
             if(/^Terms in this set/i.test(l)) return false;
@@ -1188,6 +1248,11 @@ addBtnHandler(document.getElementById('parse-vocab-list-btn'), function(){
             if(/^Erstellt von/i.test(l)) return false;
             if(l.trim().length < 2) return false;
             return true;
+        });
+
+        /* Strip leading card numbers like "14. " or "14) " from every line */
+        lines = lines.map(function(l){
+            return l.replace(/^\d+[\.\)]\s+/, '').trim();
         });
 
         if(lines.length < 4){
@@ -2694,7 +2759,23 @@ function showQuiz(callback, scoringPlayer){
 
     var overlay = document.getElementById('quiz-overlay');
     overlay.classList.add('active');
-    document.getElementById('quiz-question').textContent = currentQuizQuestion.q;
+
+    /* Determine effective direction (resolve 'random' once per question) */
+    var effectiveDir = vocabDirection;
+    if(effectiveDir === 'random') effectiveDir = Math.random() < 0.5 ? 'forward' : 'reverse';
+
+    var correctDef = currentQuizQuestion.answers[currentQuizQuestion.correct];
+    var correctTerm = currentQuizQuestion.q;
+
+    /* Set question text and expected answer based on direction */
+    if(vocabMode && effectiveDir === 'reverse'){
+        document.getElementById('quiz-question').textContent = correctDef;
+        currentVocabExpected = correctTerm;
+    } else {
+        document.getElementById('quiz-question').textContent = correctTerm;
+        currentVocabExpected = correctDef;
+    }
+
     var answersDiv = document.getElementById('quiz-answers');
     answersDiv.innerHTML = '';
 
@@ -2753,7 +2834,7 @@ function handleVocabSubmit(){
     if(!typed) return;
     quizAnswered = true;
 
-    var correctRaw = currentQuizQuestion.answers[currentQuizQuestion.correct];
+    var correctRaw = currentVocabExpected;
     var correctNorm = vocabNormalize(correctRaw);
     var typedNorm = vocabNormalize(typed);
 
