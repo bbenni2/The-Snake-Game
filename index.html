@@ -155,6 +155,18 @@ canvas#gameCanvas{display:block;margin:0 auto;background:#000;}
 .gs-card{transition:all .2s;}
 .gs-card:hover{transform:translateY(-3px);box-shadow:0 24px 60px rgba(0,0,0,.5);border-color:var(--border-hover)!important;}
 .gs-card.gs-selected{border-color:#fff!important;background:rgba(255,255,255,.03)!important;}
+/* === VOCAB MODE === */
+.vocab-input-wrap{position:relative;margin-bottom:12px;}
+#vocab-answer-input{width:100%;padding:14px 18px;border-radius:12px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:1.1rem;outline:none;font-family:inherit;transition:border-color .15s;text-align:center;caret-color:#fff;}
+#vocab-answer-input:focus{border-color:var(--border-hover);}
+#vocab-answer-input.vocab-correct{border-color:var(--green);background:rgba(74,222,128,.06);}
+#vocab-answer-input.vocab-wrong{border-color:var(--red);background:rgba(248,113,113,.06);}
+#vocab-submit-btn{width:100%;padding:14px;border-radius:12px;background:#fff;color:#000;font-weight:700;font-size:1rem;font-family:inherit;border:none;cursor:pointer;transition:background .15s;margin-top:0;}
+#vocab-submit-btn:hover{background:#e8e8e8;}
+#vocab-submit-btn:disabled{opacity:.25;cursor:not-allowed;}
+.vocab-hint{font-size:.78rem;color:var(--text-3);text-align:center;margin-top:8px;}
+.vocab-correct-answer{font-size:.95rem;color:var(--red);margin-top:10px;text-align:center;font-weight:600;}
+.vocab-correct-answer .correct-text{color:var(--green);}
 @media(max-width:650px){
 canvas#gameCanvas{width:calc(100vw - 4px)!important;height:calc(100vw - 4px)!important;}
 .hud{font-size:.72rem;padding:5px 8px;flex-wrap:wrap;gap:3px 8px;}
@@ -309,6 +321,21 @@ canvas#gameCanvas{width:calc(100vw - 4px)!important;height:calc(100vw - 4px)!imp
 </div>
 
 <div class="section">
+<h2>Antwort-Modus</h2>
+<div class="method-cards">
+<button type="button" class="method-card selected" id="quiz-mode-mc">
+<span class="emoji">&#x1F4DD;</span>
+<span class="label">Multiple Choice</span>
+</button>
+<button type="button" class="method-card" id="quiz-mode-vocab">
+<span class="emoji">&#x2328;&#xFE0F;</span>
+<span class="label">Vokabeln tippen</span>
+</button>
+</div>
+<p id="vocab-mode-hint" style="display:none;font-size:.8rem;color:var(--text-3);margin-top:8px;line-height:1.5;">&#x2705; Du tippst die Antwort direkt ein. Wörter in Klammern <em>(z.B. Hinweise)</em> werden beim Vergleich ignoriert.</p>
+</div>
+
+<div class="section">
 <h2>Fragen erstellen</h2>
 <div class="method-cards">
 <button type="button" class="method-card" data-method="ki" id="method-ki">
@@ -458,6 +485,14 @@ D) Gelb</div>
 <div class="player-indicator hidden" id="player-indicator"></div>
 <div class="quiz-question" id="quiz-question"></div>
 <div class="quiz-answers" id="quiz-answers"></div>
+<div id="vocab-input-area" style="display:none;">
+  <div class="vocab-input-wrap">
+    <input type="text" id="vocab-answer-input" placeholder="Antwort eingeben…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  </div>
+  <button id="vocab-submit-btn">Prüfen ↵</button>
+  <div class="vocab-hint">Enter zum Bestätigen</div>
+  <div class="vocab-correct-answer hidden" id="vocab-correct-answer"></div>
+</div>
 <div class="quiz-feedback hidden" id="quiz-feedback"></div>
 <div class="anki-buttons hidden" id="anki-buttons">
 <button class="anki-btn" style="background:#8b1a1a;" data-rating="1"><span class="hotkey-hint">[1]</span> Nochmal</button>
@@ -530,6 +565,7 @@ document.getElementById('ki-prompt').textContent = KI_PROMPT;
 
 var gameMode = 'snake';
 var freePlayMode = false;
+var vocabMode = false;
 var questions = [];
 var currentTopic = '';
 var customSkinImg = null;
@@ -757,6 +793,27 @@ document.querySelectorAll('.method-card').forEach(function(card){
     card.addEventListener('click', handler);
     card.addEventListener('touchend', function(e){ e.preventDefault(); handler(); });
 });
+
+/* Vocab / MC mode toggle */
+(function(){
+    var mcBtn = document.getElementById('quiz-mode-mc');
+    var vocabBtn = document.getElementById('quiz-mode-vocab');
+    var hint = document.getElementById('vocab-mode-hint');
+    function selectMC(){
+        vocabMode = false;
+        mcBtn.classList.add('selected');
+        vocabBtn.classList.remove('selected');
+        hint.style.display = 'none';
+    }
+    function selectVocab(){
+        vocabMode = true;
+        vocabBtn.classList.add('selected');
+        mcBtn.classList.remove('selected');
+        hint.style.display = 'block';
+    }
+    addBtnHandler(mcBtn, selectMC);
+    addBtnHandler(vocabBtn, selectVocab);
+})();
 
 /* Copy prompt */
 addBtnHandler(document.getElementById('copy-prompt-btn'), function(){
@@ -1698,6 +1755,8 @@ addBtnHandler(document.getElementById('exit-btn'), function(){
     clearTimeout(gameLoopTimeout);
     document.getElementById('quiz-overlay').classList.remove('active');
     document.getElementById('gameover-overlay').classList.remove('active');
+    document.getElementById('vocab-input-area').style.display = 'none';
+    document.getElementById('vocab-answer-input').disabled = false;
     quizActive = false;
     ankiPhase = false;
     quizAnswered = false;
@@ -2368,6 +2427,11 @@ function updateHud(){
 
 /* ============ QUIZ OVERLAY ============ */
 
+/* Strip parenthesised hints from an answer for vocab comparison */
+function vocabNormalize(text){
+    return text.replace(/\s*\([^)]*\)/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
 function showQuiz(callback, scoringPlayer){
     quizActive = true;
     ankiPhase = false;
@@ -2387,6 +2451,10 @@ function showQuiz(callback, scoringPlayer){
     feedback.className = 'quiz-feedback hidden';
     document.getElementById('anki-buttons').classList.add('hidden');
 
+    var vocabArea = document.getElementById('vocab-input-area');
+    var vocabInput = document.getElementById('vocab-answer-input');
+    var vocabCorrectDiv = document.getElementById('vocab-correct-answer');
+
     var indicator = document.getElementById('player-indicator');
     if(gameMode === 'pong-multi' && scoringPlayer){
         indicator.classList.remove('hidden');
@@ -2395,19 +2463,92 @@ function showQuiz(callback, scoringPlayer){
         indicator.classList.add('hidden');
     }
 
-    var labels = ['A','B','C','D'];
     quizAnswerCallback = callback;
 
-    currentQuizQuestion.answers.forEach(function(ans, idx){
-        var btn = document.createElement('button');
-        btn.className = 'quiz-btn';
-        btn.innerHTML = '<span class="hotkey-badge">' + (idx+1) + '</span>' + labels[idx] + ') ' + escapeHtml(ans);
-        btn.setAttribute('data-idx', idx);
-        var handler = function(){ handleQuizAnswer(idx); };
-        btn.addEventListener('click', handler);
-        btn.addEventListener('touchend', function(e){ e.preventDefault(); handler(); });
-        answersDiv.appendChild(btn);
-    });
+    if(vocabMode){
+        /* ---- VOCAB MODE: show text input ---- */
+        answersDiv.style.display = 'none';
+        vocabArea.style.display = 'block';
+        vocabInput.value = '';
+        vocabInput.className = '';
+        vocabCorrectDiv.classList.add('hidden');
+        vocabCorrectDiv.innerHTML = '';
+        document.getElementById('vocab-submit-btn').disabled = false;
+        /* focus the input (delayed so overlay animation is done) */
+        setTimeout(function(){ vocabInput.focus(); }, 80);
+    } else {
+        /* ---- MULTIPLE CHOICE MODE (default) ---- */
+        answersDiv.style.display = '';
+        vocabArea.style.display = 'none';
+        var labels = ['A','B','C','D'];
+        currentQuizQuestion.answers.forEach(function(ans, idx){
+            var btn = document.createElement('button');
+            btn.className = 'quiz-btn';
+            btn.innerHTML = '<span class="hotkey-badge">' + (idx+1) + '</span>' + labels[idx] + ') ' + escapeHtml(ans);
+            btn.setAttribute('data-idx', idx);
+            var handler = function(){ handleQuizAnswer(idx); };
+            btn.addEventListener('click', handler);
+            btn.addEventListener('touchend', function(e){ e.preventDefault(); handler(); });
+            answersDiv.appendChild(btn);
+        });
+    }
+}
+
+function handleVocabSubmit(){
+    if(ankiPhase || quizAnswered) return;
+    var vocabInput = document.getElementById('vocab-answer-input');
+    var typed = vocabInput.value.trim();
+    if(!typed) return;
+    quizAnswered = true;
+
+    var correctRaw = currentQuizQuestion.answers[currentQuizQuestion.correct];
+    var correctNorm = vocabNormalize(correctRaw);
+    var typedNorm = vocabNormalize(typed);
+
+    currentQuizCorrect = (typedNorm === correctNorm);
+    vocabInput.disabled = true;
+    document.getElementById('vocab-submit-btn').disabled = true;
+
+    var feedback = document.getElementById('quiz-feedback');
+    feedback.classList.remove('hidden');
+    var vocabCorrectDiv = document.getElementById('vocab-correct-answer');
+
+    if(currentQuizCorrect){
+        correctCount++;
+        vocabInput.classList.add('vocab-correct');
+        feedback.className = 'quiz-feedback correct';
+        feedback.textContent = 'Richtig! ✓';
+    } else {
+        wrongCount++;
+        vocabInput.classList.add('vocab-wrong');
+        feedback.className = 'quiz-feedback wrong';
+        feedback.textContent = 'Falsch!';
+        vocabCorrectDiv.classList.remove('hidden');
+        /* Show full correct answer (including parentheses) */
+        vocabCorrectDiv.innerHTML = 'Richtige Antwort: <span class="correct-text">' + escapeHtml(correctRaw) + '</span>';
+    }
+
+    /* Mark as seen (online mode) */
+    if(currentOnlineSetId){
+        for(var si=0;si<questions.length;si++){
+            if(questions[si] === currentQuizQuestion){ sessionSeenIndices[si] = true; break; }
+        }
+    }
+
+    if(currentOnlineSetId){
+        setTimeout(function(){
+            document.getElementById('quiz-overlay').classList.remove('active');
+            document.getElementById('vocab-input-area').style.display = 'none';
+            document.getElementById('vocab-answer-input').disabled = false;
+            quizActive = false;
+            ankiPhase = false;
+            quizAnswered = false;
+            if(quizAnswerCallback){ var cb = quizAnswerCallback; quizAnswerCallback = null; cb(currentQuizCorrect); }
+        }, 1200);
+    } else {
+        ankiPhase = true;
+        document.getElementById('anki-buttons').classList.remove('hidden');
+    }
 }
 
 function handleQuizAnswer(idx){
@@ -2458,6 +2599,25 @@ function handleQuizAnswer(idx){
     }
 }
 
+/* Vocab submit button */
+(function(){
+    var submitBtn = document.getElementById('vocab-submit-btn');
+    var vocabInput = document.getElementById('vocab-answer-input');
+    addBtnHandler(submitBtn, handleVocabSubmit);
+    vocabInput.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){
+            e.preventDefault();
+            if(!ankiPhase && !quizAnswered){
+                handleVocabSubmit();
+            } else if(ankiPhase){
+                /* Default Enter in anki phase = "Gut" (rating 3) */
+                var ankiBtn = document.querySelector('.anki-btn[data-rating="3"]');
+                if(ankiBtn) ankiBtn.click();
+            }
+        }
+    });
+})();
+
 /* Anki rating buttons */
 document.querySelectorAll('.anki-btn').forEach(function(btn){
     var handler = function(){
@@ -2468,6 +2628,9 @@ document.querySelectorAll('.anki-btn').forEach(function(btn){
         ankiSessionStats[keys[rating]]++;
 
         document.getElementById('quiz-overlay').classList.remove('active');
+        document.getElementById('vocab-input-area').style.display = 'none';
+        document.getElementById('vocab-answer-input').disabled = false;
+        document.getElementById('vocab-answer-input').className = '';
         quizActive = false;
         ankiPhase = false;
         quizAnswered = false;
@@ -2488,6 +2651,8 @@ function gameOver(){
     gameRunning = false;
     clearTimeout(gameLoopTimeout);
     document.getElementById('quiz-overlay').classList.remove('active');
+    document.getElementById('vocab-input-area').style.display = 'none';
+    document.getElementById('vocab-answer-input').disabled = false;
     quizActive = false;
     ankiPhase = false;
 
@@ -2570,6 +2735,9 @@ document.addEventListener('keydown', function(e){
         if((e.key==='ArrowRight' || e.key==='d' || e.key==='D') && direction.x!==-1) nextDirection={x:1,y:0};
     }
 
+    /* Vocab mode: typing goes to the input – don't intercept here */
+    if(quizActive && vocabMode && !ankiPhase) return;
+
     if(quizActive && (e.key==='1'||e.key==='2'||e.key==='3'||e.key==='4')){
         var num = parseInt(e.key);
         if(ankiPhase){
@@ -2581,7 +2749,7 @@ document.addEventListener('keydown', function(e){
         }
     }
 
-    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].indexOf(e.key)>=0){
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].indexOf(e.key)>=0 && !quizActive){
         e.preventDefault();
     }
 });
