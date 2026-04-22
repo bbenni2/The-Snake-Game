@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>The Snake Learning Game</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
@@ -155,10 +156,17 @@ canvas#gameCanvas{display:block;margin:0 auto;background:#000;}
 .gs-card{transition:all .2s;}
 .gs-card:hover{transform:translateY(-3px);box-shadow:0 24px 60px rgba(0,0,0,.5);border-color:var(--border-hover)!important;}
 .gs-card.gs-selected{border-color:#fff!important;background:rgba(255,255,255,.03)!important;}
-/* === VOCAB IMPORT SUB-TABS === */
-.vi-tab{background:var(--surface-2);border:1px solid var(--border);color:var(--text-3);padding:7px 13px;border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;touch-action:manipulation;}
-.vi-tab:hover{border-color:var(--border-hover);color:var(--text-2);}
-.vi-tab.active{background:var(--surface-3);color:var(--text);border-color:var(--border-hover);}
+/* === PDF DROP ZONE === */
+.pdf-drop-zone{border:2px dashed var(--border);border-radius:14px;padding:36px 20px;text-align:center;cursor:pointer;transition:all .18s;background:var(--surface-2);position:relative;}
+.pdf-drop-zone:hover,.pdf-drop-zone.drag-over{border-color:#fff;background:rgba(255,255,255,.04);}
+.pdf-drop-zone .dz-icon{font-size:2.8rem;display:block;margin-bottom:10px;pointer-events:none;}
+.pdf-drop-zone .dz-title{font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:4px;pointer-events:none;}
+.pdf-drop-zone .dz-sub{font-size:.78rem;color:var(--text-3);pointer-events:none;}
+.pdf-drop-zone input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;}
+.pdf-status{margin-top:14px;padding:12px 14px;border-radius:10px;font-size:.88rem;font-weight:600;text-align:center;display:none;}
+.pdf-status.loading{background:rgba(255,255,255,.05);color:var(--text-2);display:block;}
+.pdf-status.success{background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);color:var(--green);display:block;}
+.pdf-status.error{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);color:var(--red);display:block;}
 /* === VOCAB MODE === */
 .vocab-input-wrap{position:relative;margin-bottom:12px;}
 #vocab-answer-input{width:100%;padding:14px 18px;border-radius:12px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:1.1rem;outline:none;font-family:inherit;transition:border-color .15s;text-align:center;caret-color:#fff;}
@@ -343,86 +351,50 @@ canvas#gameCanvas{width:calc(100vw - 4px)!important;height:calc(100vw - 4px)!imp
 <h2>Fragen erstellen</h2>
 <div class="method-cards">
 <button type="button" class="method-card" data-method="vocab-import" id="method-vocab-import">
-<span class="emoji">&#x1F4E5;</span>
-<span class="label">Quizlet / Vokabelliste <span class="tag">Neu</span></span>
+<span class="emoji">&#x1F4C4;</span>
+<span class="label">Quizlet PDF <span class="tag">Neu</span></span>
+</button>
+<button type="button" class="method-card" data-method="vocab-list" id="method-vocab-list">
+<span class="emoji">&#x270F;&#xFE0F;</span>
+<span class="label">Vokabelliste schreiben</span>
 </button>
 <button type="button" class="method-card" data-method="ki" id="method-ki">
 <span class="emoji">&#x1F916;</span>
-<span class="label">Mit KI erstellen lassen</span>
+<span class="label">KI erstellen lassen</span>
 </button>
 <button type="button" class="method-card" data-method="text" id="method-text">
 <span class="emoji">&#x1F4CB;</span>
-<span class="label">Multiple-Choice Text</span>
+<span class="label">Multiple-Choice</span>
 </button>
 <button type="button" class="method-card" data-method="manual" id="method-manual">
-<span class="emoji">&#x270F;&#xFE0F;</span>
+<span class="emoji">&#x2795;</span>
 <span class="label">Einzeln erstellen</span>
 </button>
 </div>
 
 <div id="panel-vocab-import" class="panel">
-
-<!-- METHOD TABS inside panel -->
-<div style="display:flex;gap:6px;margin-top:14px;margin-bottom:14px;flex-wrap:wrap;">
-  <button type="button" class="vi-tab active" data-vi="quizlet-pdf">📄 Quizlet PDF</button>
-  <button type="button" class="vi-tab" data-vi="quizlet-page">🖥️ Quizlet Seite</button>
-  <button type="button" class="vi-tab" data-vi="own">✏️ Selbst schreiben</button>
+<p style="margin-top:14px;margin-bottom:14px;font-size:.88rem;color:var(--text-2);line-height:1.6;">
+  Quizlet-Set öffnen → <strong style="color:var(--text);">···</strong> → <strong style="color:var(--text);">PDF herunterladen</strong> → hier hochladen. Fertig.
+</p>
+<div class="pdf-drop-zone" id="pdf-drop-zone">
+  <input type="file" id="pdf-file-input" accept=".pdf">
+  <span class="dz-icon">📄</span>
+  <div class="dz-title">PDF hierher ziehen oder tippen zum Auswählen</div>
+  <div class="dz-sub">Quizlet-PDF wird automatisch erkannt &amp; importiert</div>
+</div>
+<div class="pdf-status" id="pdf-status"></div>
 </div>
 
-<!-- QUIZLET PDF -->
-<div class="vi-panel active" id="vi-quizlet-pdf">
-  <ol style="font-size:.88rem;margin:0 0 12px 18px;line-height:1.9;color:var(--text-2);">
-    <li>Öffne dein Quizlet-Set im Browser</li>
-    <li>Klicke auf <strong style="color:var(--text);">···</strong> → <strong style="color:var(--text);">PDF herunterladen</strong></li>
-    <li>Öffne die PDF in <strong style="color:var(--text);">Safari / Vorschau / Chrome</strong></li>
-    <li><strong style="color:var(--text);">Alles markieren</strong> <span style="color:var(--text-3);">(Cmd+A)</span> → <strong style="color:var(--text);">Kopieren</strong> <span style="color:var(--text-3);">(Cmd+C)</span></li>
-    <li>Unten einfügen → Importieren</li>
-  </ol>
-  <div style="background:rgba(96,165,250,.06);border:1px solid rgba(96,165,250,.18);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:.8rem;color:var(--text-2);line-height:1.5;">
-    <strong style="color:var(--blue);">ℹ️ Format im PDF:</strong> Begriff und Übersetzung stehen <em>abwechselnd in zwei Zeilen</em> — der Importer erkennt das automatisch.
-  </div>
-  <div class="format-example" style="font-size:.8rem;">die Katze
-the cat
-der Hund
-the dog
-gehen
-to go</div>
-</div>
-
-<!-- QUIZLET SEITE -->
-<div class="vi-panel" id="vi-quizlet-page" style="display:none;">
-  <ol style="font-size:.88rem;margin:0 0 12px 18px;line-height:1.9;color:var(--text-2);">
-    <li>Öffne dein Quizlet-Set und wechsle zur <strong style="color:var(--text);">Karten-Ansicht</strong> (Liste aller Karten)</li>
-    <li>Scrolle ganz nach unten damit alle Karten geladen sind</li>
-    <li>Markiere alle Begriffe und Definitionen mit der Maus und kopiere sie</li>
-    <li>Unten einfügen → Importieren</li>
-  </ol>
-  <div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.18);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:.8rem;color:var(--text-2);line-height:1.5;">
-    <strong style="color:var(--yellow);">💡 Tipp:</strong> Einfacher ist der PDF-Weg — sauberer Text, keine Seitenelemente dabei.
-  </div>
-</div>
-
-<!-- SELBST SCHREIBEN -->
-<div class="vi-panel" id="vi-own" style="display:none;">
-  <p style="font-size:.85rem;color:var(--text-2);margin-bottom:10px;line-height:1.6;">Eine Vokabel pro Zeile. Trenne Begriff und Übersetzung mit <strong style="color:var(--text);">Tab</strong>, <strong style="color:var(--text);">Komma</strong>, <strong style="color:var(--text);">–</strong> oder schreibe sie einfach <strong style="color:var(--text);">in zwei aufeinanderfolgende Zeilen</strong>.</p>
-  <div class="format-example" style="font-size:.8rem;margin-bottom:10px;">die Katze	the cat
+<div id="panel-vocab-list" class="panel">
+<p style="margin-top:14px;margin-bottom:10px;font-size:.85rem;color:var(--text-2);line-height:1.6;">Eine Vokabel pro Zeile. Trenne Begriff und Übersetzung mit <strong style="color:var(--text);">Tab</strong>, <strong style="color:var(--text);">Komma</strong> oder <strong style="color:var(--text);">–</strong>. Wörter in Klammern werden beim Tippen ignoriert.</p>
+<div class="format-example" style="font-size:.82rem;">die Katze	the cat
 der Hund	the dog
 gehen	to go (somewhere)
-schlafen	to sleep
-das Buch	the book (die Bücher)</div>
-  <p style="font-size:.8rem;color:var(--text-3);margin-bottom:4px;">Oder zwei Zeilen pro Vokabel (wie im PDF):</p>
-  <div class="format-example" style="font-size:.8rem;margin-bottom:0;">die Katze
-the cat
-der Hund
-the dog</div>
-  <div style="margin-top:10px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.15);border-radius:8px;padding:9px 12px;font-size:.8rem;color:var(--text-2);line-height:1.5;">
-    <strong style="color:var(--green);">Klammern = Hinweis</strong> — <code style="color:var(--text-3);">to go (somewhere)</code> → beim Tippen reicht <code style="color:var(--text-3);">to go</code>
-  </div>
-</div>
-
-<textarea id="vocab-import-input" placeholder="Vokabeln hier einfügen…" style="min-height:160px;margin-top:14px;"></textarea>
-<button class="btn-primary" id="parse-vocab-btn" style="width:100%;margin-top:10px;padding:14px;font-size:1.05rem;">🔍 Vokabeln importieren</button>
-<div id="vocab-import-msg" style="margin-top:8px;font-size:.85rem;min-height:18px;text-align:center;"></div>
+das Buch	the book (pl. die Bücher)
+schlafen	to sleep</div>
+<textarea id="vocab-list-input" placeholder="Vokabeln hier eintippen…" style="min-height:140px;margin-top:10px;"></textarea>
+<button class="btn-primary" id="parse-vocab-list-btn" style="width:100%;margin-top:10px;padding:14px;font-size:1.05rem;">Importieren</button>
+<div id="vocab-list-msg" style="margin-top:8px;font-size:.85rem;min-height:18px;text-align:center;"></div>
 </div>
 
 <div id="panel-ki" class="panel">
@@ -1040,97 +1012,22 @@ addBtnHandler(document.getElementById('add-manual-btn'), function(){
     saveSets();
 });
 
-/* ---- Vocab import sub-tab switcher ---- */
-(function(){
-    document.querySelectorAll('.vi-tab').forEach(function(tab){
-        function handler(){
-            document.querySelectorAll('.vi-tab').forEach(function(t){ t.classList.remove('active'); });
-            document.querySelectorAll('.vi-panel').forEach(function(p){ p.style.display='none'; });
-            tab.classList.add('active');
-            var panel = document.getElementById('vi-' + tab.getAttribute('data-vi'));
-            if(panel) panel.style.display='block';
-        }
-        tab.addEventListener('click', handler);
-        tab.addEventListener('touchend', function(e){ e.preventDefault(); handler(); });
-    });
-})();
-
-/* ---- Quizlet / Vocab-list importer ---- */
-addBtnHandler(document.getElementById('parse-vocab-btn'), function(){
-    var raw = document.getElementById('vocab-import-input').value;
-    var msg = document.getElementById('vocab-import-msg');
-    msg.textContent = '';
-    msg.style.color = '';
-
-    /* Split into non-empty lines */
-    var lines = raw.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
-    if(lines.length === 0){ msg.style.color='var(--red)'; msg.textContent = 'Keine Zeilen gefunden.'; return; }
-
-    var pairs = [];
-
-    /* Try inline separator first (Tab, –, ,) */
-    function detectSep(lines){
-        var seps = ['\t',' – ',' - ',', ','; '];
-        var counts = {};
-        seps.forEach(function(s){ counts[s]=0; });
-        lines.forEach(function(l){
-            seps.forEach(function(s){ if(l.indexOf(s)>=0) counts[s]++; });
-        });
-        var best = null, bestN = 0;
-        seps.forEach(function(s){ if(counts[s] > bestN){ best=s; bestN=counts[s]; } });
-        /* require separator in at least 40% of lines */
-        return (bestN >= Math.max(1, lines.length * 0.4)) ? best : null;
-    }
-
-    var sep = detectSep(lines);
-
-    if(sep){
-        /* Inline format: Begriff [sep] Übersetzung */
-        lines.forEach(function(l){
-            var idx = l.indexOf(sep);
-            if(idx < 1) return;
-            var term = l.slice(0, idx).trim();
-            var def  = l.slice(idx + sep.length).trim();
-            if(term && def) pairs.push({term: term, def: def});
-        });
-    } else {
-        /* Alternating-line format (Quizlet PDF / 2-Zeilen-Format):
-           odd lines  = Begriff
-           even lines = Übersetzung
-           blank lines ignored (already filtered above) */
-        for(var li = 0; li + 1 < lines.length; li += 2){
-            var term = lines[li].trim();
-            var def  = lines[li+1].trim();
-            if(term && def) pairs.push({term: term, def: def});
-        }
-    }
-
-    if(pairs.length < 2){ msg.style.color='var(--red)'; msg.textContent = 'Mindestens 2 Vokabelpaare nötig. Format prüfen!'; return; }
-
-    /* Build questions: for each pair pick 3 wrong answers from the other definitions */
+/* ============ VOCAB PAIR → QUESTION BUILDER ============ */
+function buildQuestionsFromPairs(pairs){
     var allDefs = pairs.map(function(p){ return p.def; });
-    var added = 0;
     pairs.forEach(function(pair){
-        /* collect wrong pool = all defs except this one */
         var wrongPool = allDefs.filter(function(d){ return d !== pair.def; });
-        /* shuffle wrong pool */
         for(var i = wrongPool.length-1; i>0; i--){
             var j = Math.floor(Math.random()*(i+1));
             var tmp = wrongPool[i]; wrongPool[i]=wrongPool[j]; wrongPool[j]=tmp;
         }
-        /* pick up to 3 wrong answers (pad with repeats if set is tiny) */
         var wrong = [];
         for(var w=0; w<3; w++) wrong.push(wrongPool[w % wrongPool.length]);
-
-        /* insert correct at random position 0-3 */
         var correctPos = Math.floor(Math.random()*4);
         var answers = wrong.slice();
         answers.splice(correctPos, 0, pair.def);
-
         questions.push({q: pair.term, answers: answers, correct: correctPos});
-        added++;
     });
-
     currentTopic = document.getElementById('topic-input').value || 'Vokabeln';
     if(!document.getElementById('topic-input').value) document.getElementById('topic-input').value = currentTopic;
     currentOnlineSetId = null;
@@ -1138,10 +1035,189 @@ addBtnHandler(document.getElementById('parse-vocab-btn'), function(){
     renderQuestions();
     updateStartBtn();
     saveSets();
-    document.getElementById('vocab-import-input').value = '';
+}
+
+/* Inline-Separator-Parser (Tab, –, Komma) */
+function parsePairsFromText(text){
+    var lines = text.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
+    if(lines.length === 0) return null;
+    var seps = ['\t',' – ',' - ',', ','; '];
+    var counts = {};
+    seps.forEach(function(s){ counts[s]=0; });
+    lines.forEach(function(l){ seps.forEach(function(s){ if(l.indexOf(s)>=0) counts[s]++; }); });
+    var best = null, bestN = 0;
+    seps.forEach(function(s){ if(counts[s] > bestN){ best=s; bestN=counts[s]; } });
+    if(bestN < Math.max(1, lines.length * 0.4)) return null;
+    var pairs = [];
+    lines.forEach(function(l){
+        var idx = l.indexOf(best);
+        if(idx < 1) return;
+        var term = l.slice(0, idx).trim();
+        var def  = l.slice(idx + best.length).trim();
+        if(term && def) pairs.push({term: term, def: def});
+    });
+    return pairs.length >= 2 ? pairs : null;
+}
+
+/* ---- Vokabelliste schreiben (manuell) ---- */
+addBtnHandler(document.getElementById('parse-vocab-list-btn'), function(){
+    var raw = document.getElementById('vocab-list-input').value;
+    var msg = document.getElementById('vocab-list-msg');
+    msg.textContent = ''; msg.style.color = '';
+    var pairs = parsePairsFromText(raw);
+    if(!pairs){ msg.style.color='var(--red)'; msg.textContent='Format nicht erkannt. Bitte Tab, Komma oder – als Trennzeichen.'; return; }
+    buildQuestionsFromPairs(pairs);
+    document.getElementById('vocab-list-input').value = '';
     msg.style.color = 'var(--green)';
-    msg.textContent = '✓ ' + added + ' Vokabeln importiert!';
+    msg.textContent = '✓ ' + pairs.length + ' Vokabeln importiert!';
 });
+
+/* ============ QUIZLET PDF IMPORT (PDF.js) ============ */
+(function(){
+    /* Set PDF.js worker path */
+    if(typeof pdfjsLib !== 'undefined'){
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    var dropZone  = document.getElementById('pdf-drop-zone');
+    var fileInput = document.getElementById('pdf-file-input');
+    var statusDiv = document.getElementById('pdf-status');
+
+    function setStatus(type, text){
+        statusDiv.className = 'pdf-status ' + type;
+        statusDiv.textContent = text;
+    }
+
+    /* Drag-and-drop visual feedback */
+    dropZone.addEventListener('dragover',  function(e){ e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', function(){ dropZone.classList.remove('drag-over'); });
+    dropZone.addEventListener('drop', function(e){
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        var file = e.dataTransfer.files[0];
+        if(file && file.type === 'application/pdf') loadPDF(file);
+        else setStatus('error', 'Bitte eine PDF-Datei hochladen.');
+    });
+
+    fileInput.addEventListener('change', function(e){
+        var file = e.target.files[0];
+        if(file) loadPDF(file);
+        e.target.value = '';
+    });
+
+    function loadPDF(file){
+        if(typeof pdfjsLib === 'undefined'){
+            setStatus('error', 'PDF-Bibliothek nicht geladen. Bitte Seite neu laden.');
+            return;
+        }
+        setStatus('loading', '📄 PDF wird gelesen…');
+
+        var reader = new FileReader();
+        reader.onload = function(ev){
+            var typedArr = new Uint8Array(ev.target.result);
+            pdfjsLib.getDocument({data: typedArr}).promise.then(function(pdf){
+                /* Read all pages sequentially */
+                var allLines = [];
+                var chain = Promise.resolve();
+                for(var p = 1; p <= pdf.numPages; p++){
+                    (function(pageNum){
+                        chain = chain.then(function(){
+                            return pdf.getPage(pageNum).then(function(page){
+                                return page.getTextContent().then(function(content){
+                                    allLines = allLines.concat(extractLinesFromPage(content));
+                                });
+                            });
+                        });
+                    })(p);
+                }
+                chain.then(function(){
+                    processPDFLines(allLines, file.name);
+                });
+            }).catch(function(err){
+                setStatus('error', 'Fehler beim Lesen: ' + err.message);
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    /* Reconstruct text lines from PDF text items using Y-coordinate grouping.
+       Items on the same Y → same line; large X-gap → tab separator (two columns). */
+    function extractLinesFromPage(content){
+        /* Group by rounded Y (PDF Y-axis is bottom-up) */
+        var rows = {};
+        content.items.forEach(function(item){
+            var yKey = Math.round(item.transform[5] / 2) * 2; /* 2pt bucket */
+            if(!rows[yKey]) rows[yKey] = [];
+            rows[yKey].push({x: item.transform[4], w: item.width || 0, text: item.str});
+        });
+
+        /* Sort Y descending (top of page first) */
+        var ys = Object.keys(rows).map(Number).sort(function(a,b){ return b-a; });
+        var lines = [];
+        ys.forEach(function(y){
+            var items = rows[y].sort(function(a,b){ return a.x - b.x; });
+            var line = '';
+            var lastEnd = -Infinity;
+            items.forEach(function(it){
+                if(line.length > 0){
+                    var gap = it.x - lastEnd;
+                    if(gap > 40) line += '\t';       /* column gap */
+                    else if(gap > 1) line += ' ';
+                }
+                line += it.text;
+                lastEnd = it.x + it.w;
+            });
+            line = line.trim();
+            if(line) lines.push(line);
+        });
+        return lines;
+    }
+
+    /* Filter PDF noise and extract vocab pairs */
+    function processPDFLines(rawLines, filename){
+        /* Remove obvious non-vocabulary lines */
+        var lines = rawLines.filter(function(l){
+            if(!l.trim()) return false;
+            if(/^\d+$/.test(l.trim())) return false;              /* page numbers */
+            if(/^quizlet\.com/i.test(l)) return false;
+            if(/^https?:\/\//i.test(l)) return false;
+            if(/^Terms in this set/i.test(l)) return false;
+            if(/^Lernset/i.test(l)) return false;
+            if(/^Created by/i.test(l)) return false;
+            if(/^Erstellt von/i.test(l)) return false;
+            if(l.trim().length < 2) return false;
+            return true;
+        });
+
+        if(lines.length < 4){
+            setStatus('error', 'Zu wenig Text erkannt. Ist das eine Quizlet-PDF?');
+            return;
+        }
+
+        /* Try inline tab (two-column layout detected via X-gap → '\t') */
+        var pairs = parsePairsFromText(lines.join('\n'));
+
+        /* Fallback: alternating lines (one-column layout) */
+        if(!pairs){
+            pairs = [];
+            for(var i = 0; i + 1 < lines.length; i += 2){
+                var term = lines[i].trim();
+                var def  = lines[i+1].trim();
+                if(term && def) pairs.push({term: term, def: def});
+            }
+            if(pairs.length < 2) pairs = null;
+        }
+
+        if(!pairs || pairs.length < 2){
+            setStatus('error', 'Keine Vokabelpaare gefunden. Ist das ein Quizlet-Set?');
+            return;
+        }
+
+        buildQuestionsFromPairs(pairs);
+        setStatus('success', '✓ ' + pairs.length + ' Vokabeln aus „' + filename + '" importiert!');
+    }
+})();
 
 function applyQListCollapse(){
     var items = document.querySelectorAll('#questions-list .question-item');
