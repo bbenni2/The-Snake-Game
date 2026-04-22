@@ -338,18 +338,56 @@ canvas#gameCanvas{width:calc(100vw - 4px)!important;height:calc(100vw - 4px)!imp
 <div class="section">
 <h2>Fragen erstellen</h2>
 <div class="method-cards">
+<button type="button" class="method-card" data-method="vocab-import" id="method-vocab-import">
+<span class="emoji">&#x1F4E5;</span>
+<span class="label">Quizlet / Vokabelliste <span class="tag">Neu</span></span>
+</button>
 <button type="button" class="method-card" data-method="ki" id="method-ki">
 <span class="emoji">&#x1F916;</span>
-<span class="label">Mit einer KI erstellen lassen <span class="tag">Empfohlen</span></span>
+<span class="label">Mit KI erstellen lassen</span>
 </button>
 <button type="button" class="method-card" data-method="text" id="method-text">
 <span class="emoji">&#x1F4CB;</span>
-<span class="label">Fragen als Text einfügen</span>
+<span class="label">Multiple-Choice Text</span>
 </button>
 <button type="button" class="method-card" data-method="manual" id="method-manual">
 <span class="emoji">&#x270F;&#xFE0F;</span>
-<span class="label">Fragen einzeln erstellen</span>
+<span class="label">Einzeln erstellen</span>
 </button>
+</div>
+
+<div id="panel-vocab-import" class="panel">
+<h3 style="margin-top:14px;">&#x1F4E4; Quizlet exportieren</h3>
+<ol style="font-size:.88rem;margin:8px 0 14px 18px;line-height:1.8;color:var(--text-2);">
+  <li>Öffne dein Quizlet-Set im Browser</li>
+  <li>Klicke auf <strong style="color:var(--text);">···</strong> → <strong style="color:var(--text);">Exportieren</strong></li>
+  <li>Einstellungen: <strong style="color:var(--text);">Tab</strong> zwischen Begriff &amp; Definition, <strong style="color:var(--text);">Neue Zeile</strong> zwischen Karten</li>
+  <li>Alles kopieren &amp; unten einfügen</li>
+</ol>
+<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+  <div style="font-size:.72rem;font-weight:700;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;">&#x2728; Eigenes Format schreiben</div>
+  <p style="font-size:.82rem;color:var(--text-2);margin-bottom:8px;line-height:1.6;">Eine Vokabel pro Zeile. Trenne Begriff und Übersetzung durch <strong style="color:var(--text);">Tab</strong>, <strong style="color:var(--text);">Komma</strong> oder <strong style="color:var(--text);">–</strong>. Hinweise in Klammern werden beim Tippen ignoriert.</p>
+  <div class="format-example" style="margin:0;font-size:.8rem;">die Katze	the cat
+der Hund	the dog
+gehen	to go (somewhere)
+schlafen	to sleep
+das Buch	the book (die Bücher)</div>
+  <div style="margin-top:10px;font-size:.82rem;color:var(--text-2);line-height:1.6;">Oder mit <strong style="color:var(--text);">Komma</strong> als Trennzeichen:<br>
+  <code style="font-size:.78rem;color:var(--text-3);">die Katze, the cat</code><br>
+  Oder mit <strong style="color:var(--text);">–</strong> (Bindestrich):<br>
+  <code style="font-size:.78rem;color:var(--text-3);">die Katze – the cat</code></div>
+</div>
+<div style="background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.15);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:.8rem;color:var(--text-2);line-height:1.5;">
+  <strong style="color:var(--green);">&#x1F4A1; Tipp:</strong> Funktioniert auch mit <strong style="color:var(--text);">Vokabeln tippen</strong> <em>und</em> Multiple Choice — beim MC-Modus werden automatisch 3 Falschantworten aus dem Set gewählt.
+</div>
+<textarea id="vocab-import-input" placeholder="Vokabeln hier einfügen…
+z.B. aus Quizlet kopiert:
+
+die Katze	the cat
+der Hund	the dog
+gehen	to go (somewhere)" style="min-height:160px;"></textarea>
+<button class="btn-primary" id="parse-vocab-btn" style="width:100%;margin-top:10px;padding:14px;font-size:1.05rem;">&#x1F50D; Vokabeln importieren</button>
+<div id="vocab-import-msg" style="margin-top:8px;font-size:.85rem;min-height:18px;text-align:center;"></div>
 </div>
 
 <div id="panel-ki" class="panel">
@@ -965,6 +1003,81 @@ addBtnHandler(document.getElementById('add-manual-btn'), function(){
     renderQuestions();
     updateStartBtn();
     saveSets();
+});
+
+/* ---- Quizlet / Vocab-list importer ---- */
+addBtnHandler(document.getElementById('parse-vocab-btn'), function(){
+    var raw = document.getElementById('vocab-import-input').value;
+    var msg = document.getElementById('vocab-import-msg');
+    msg.textContent = '';
+    msg.style.color = '';
+
+    /* Split into non-empty lines */
+    var lines = raw.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
+    if(lines.length === 0){ msg.style.color='var(--red)'; msg.textContent = 'Keine Zeilen gefunden.'; return; }
+
+    /* Detect separator: tab wins if present in ≥ half the lines, else try – then , */
+    function detectSep(lines){
+        var counts = {'\t':0, ' – ':0, ' - ':0, ', ':0, '; ':0, ':':0};
+        lines.forEach(function(l){
+            Object.keys(counts).forEach(function(s){ if(l.indexOf(s)>=0) counts[s]++; });
+        });
+        var best = '\t', bestN = counts['\t'];
+        [' – ',' - ',', ','; ',':'].forEach(function(s){
+            if(counts[s] > bestN){ best=s; bestN=counts[s]; }
+        });
+        return bestN > 0 ? best : null;
+    }
+
+    var sep = detectSep(lines);
+    if(!sep){ msg.style.color='var(--red)'; msg.textContent = 'Format nicht erkannt. Bitte Tab, Komma oder – als Trennzeichen verwenden.'; return; }
+
+    /* Parse pairs */
+    var pairs = [];
+    lines.forEach(function(l){
+        var idx = l.indexOf(sep);
+        if(idx < 1) return;
+        var term = l.slice(0, idx).trim();
+        var def  = l.slice(idx + sep.length).trim();
+        if(term && def) pairs.push({term: term, def: def});
+    });
+
+    if(pairs.length < 2){ msg.style.color='var(--red)'; msg.textContent = 'Mindestens 2 Vokabelpaare nötig.'; return; }
+
+    /* Build questions: for each pair pick 3 wrong answers from the other definitions */
+    var allDefs = pairs.map(function(p){ return p.def; });
+    var added = 0;
+    pairs.forEach(function(pair){
+        /* collect wrong pool = all defs except this one */
+        var wrongPool = allDefs.filter(function(d){ return d !== pair.def; });
+        /* shuffle wrong pool */
+        for(var i = wrongPool.length-1; i>0; i--){
+            var j = Math.floor(Math.random()*(i+1));
+            var tmp = wrongPool[i]; wrongPool[i]=wrongPool[j]; wrongPool[j]=tmp;
+        }
+        /* pick up to 3 wrong answers (pad with repeats if set is tiny) */
+        var wrong = [];
+        for(var w=0; w<3; w++) wrong.push(wrongPool[w % wrongPool.length]);
+
+        /* insert correct at random position 0-3 */
+        var correctPos = Math.floor(Math.random()*4);
+        var answers = wrong.slice();
+        answers.splice(correctPos, 0, pair.def);
+
+        questions.push({q: pair.term, answers: answers, correct: correctPos});
+        added++;
+    });
+
+    currentTopic = document.getElementById('topic-input').value || 'Vokabeln';
+    if(!document.getElementById('topic-input').value) document.getElementById('topic-input').value = currentTopic;
+    currentOnlineSetId = null;
+    document.getElementById('online-play-area').style.display = 'none';
+    renderQuestions();
+    updateStartBtn();
+    saveSets();
+    document.getElementById('vocab-import-input').value = '';
+    msg.style.color = 'var(--green)';
+    msg.textContent = '✓ ' + added + ' Vokabeln importiert!';
 });
 
 function applyQListCollapse(){
