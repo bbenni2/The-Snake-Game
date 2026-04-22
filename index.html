@@ -1162,21 +1162,21 @@ addBtnHandler(document.getElementById('parse-vocab-list-btn'), function(){
         reader.onload = function(ev){
             var typedArr = new Uint8Array(ev.target.result);
             pdfjsLib.getDocument({data: typedArr}).promise.then(function(pdf){
-                var pageResults = [];
+                var allPageLines = [];
                 var chain = Promise.resolve();
                 for(var p = 1; p <= pdf.numPages; p++){
                     (function(pageNum){
                         chain = chain.then(function(){
                             return pdf.getPage(pageNum).then(function(page){
                                 return page.getTextContent().then(function(content){
-                                    pageResults.push(extractFromPage(content));
+                                    allPageLines.push(extractFromPage(content));
                                 });
                             });
                         });
                     })(p);
                 }
                 chain.then(function(){
-                    processPDFLines(pageResults, file.name);
+                    processPDFLines(allPageLines, file.name);
                 });
             }).catch(function(err){
                 setStatus('error', 'Fehler beim Lesen: ' + err.message);
@@ -1185,148 +1185,152 @@ addBtnHandler(document.getElementById('parse-vocab-list-btn'), function(){
         reader.readAsArrayBuffer(file);
     }
 
-    /* ---- PAGE TEXT EXTRACTOR ----
-       Strategy: detect page-wide column boundary by finding the largest horizontal
-       gap that is consistent across MOST rows. Items left of boundary → term column,
-       items right → definition column.  Handles multi-line cell wrapping. */
+    /* Extract text lines from one PDF page.
+       Items on the same Y → joined as one line.
+       Gap > 20pt between items → insert TAB (possible column separator). */
     function extractFromPage(content){
-        /* Collect all non-empty text items */
-        var items = content.items.map(function(it){
-            return {x: it.transform[4], y: Math.round(it.transform[5]/3)*3,
-                    w: it.width || 0, text: it.str};
-        }).filter(function(it){ return it.text.trim(); });
-        if(!items.length) return {lines:[], colX: null};
-
-        /* Group items into rows by Y */
-        var rowMap = {};
-        items.forEach(function(it){
-            if(!rowMap[it.y]) rowMap[it.y] = [];
-            rowMap[it.y].push(it);
+        var rows = {};
+        content.items.forEach(function(item){
+            var y = Math.round(item.transform[5] / 3) * 3;
+            if(!rows[y]) rows[y] = [];
+            rows[y].push({x: item.transform[4], w: item.width||0, text: item.str});
         });
-
-        /* Determine page-wide column boundary:
-           For each row with ≥2 items, record the midpoint of the LARGEST gap.
-           The most common midpoint cluster is the real column boundary. */
-        var gapMids = [];
-        Object.keys(rowMap).forEach(function(y){
-            var row = rowMap[y].sort(function(a,b){ return a.x-b.x; });
-            if(row.length < 2) return;
-            var maxGap = 0, mid = 0;
-            for(var i=1;i<row.length;i++){
-                var g = row[i].x - (row[i-1].x + row[i-1].w);
-                if(g > maxGap){ maxGap = g; mid = row[i-1].x + row[i-1].w + g/2; }
-            }
-            if(maxGap > 10) gapMids.push(mid);
-        });
-
-        var colX = null;
-        if(gapMids.length >= 2){
-            gapMids.sort(function(a,b){ return a-b; });
-            colX = gapMids[Math.floor(gapMids.length/2)]; /* median */
-        }
-
-        /* Build lines sorted top→bottom */
-        var sortedYs = Object.keys(rowMap).map(Number).sort(function(a,b){ return b-a; });
+        var ys = Object.keys(rows).map(Number).sort(function(a,b){ return b-a; });
         var lines = [];
-        sortedYs.forEach(function(y){
-            var row = rowMap[y].sort(function(a,b){ return a.x-b.x; });
-            if(colX){
-                var L = row.filter(function(it){ return it.x < colX; });
-                var R = row.filter(function(it){ return it.x >= colX; });
-                var lt = L.map(function(it){ return it.text; }).join(' ').trim();
-                var rt = R.map(function(it){ return it.text; }).join(' ').trim();
-                if(lt && rt) lines.push({left:lt, right:rt});
-                else if(lt)  lines.push({left:lt, right:''});
-                else if(rt)  lines.push({left:'',  right:rt});
-            } else {
-                var t = row.map(function(it){ return it.text; }).join(' ').trim();
-                if(t) lines.push({left:t, right:''});
-            }
+        ys.forEach(function(y){
+            var items = rows[y].sort(function(a,b){ return a.x-b.x; });
+            var out = '', lastEnd = null;
+            items.forEach(function(it){
+                if(!it.text) return;
+                if(lastEnd === null){
+                    out = it.text;
+                } else {
+                    var gap = it.x - lastEnd;
+                    out += (gap > 20 ? '\t' : gap > 1 ? ' ' : '') + it.text;
+                }
+                lastEnd = it.x + Math.max(it.w, 1);
+            });
+            out = out.trim();
+            if(out) lines.push(out);
         });
-        return {lines:lines, colX:colX};
+        return lines;
     }
 
-    /* Strip common noise from a single text segment */
-    function cleanSeg(s){
-        s = s.trim();
-        s = s.replace(/^\d+[\.\)]\s*/,'');   /* leading card numbers: "16. " */
-        s = s.replace(/\s*\[\d+\]$/,'');      /* footnote markers: "[3]" */
-        return s.trim();
+    /* Strip leading card number "16." or "16 ." or "16)" from a string */
+    function stripCardNum(s){
+        return s.replace(/^\d+\s*[\.\)]\s+/, '').trim();
     }
 
-    function isNoise(s){
-        if(!s) return true;
-        if(/^\d+$/.test(s)) return true;                    /* pure number */
-        if(/^\d+[\.\)]$/.test(s)) return true;              /* "16." */
-        if(/^quizlet\.com/i.test(s)) return true;
-        if(/^https?:\/\//i.test(s)) return true;
-        if(/^(Terms in this set|Lernset|Created by|Erstellt von)/i.test(s)) return true;
-        if(s.length < 2) return true;
+    /* Fix hyphenated line-breaks: "Wer-  bung" → "Werbung" */
+    function dehyphen(s){
+        return s.replace(/-\s+([^\s])/g, '$1');
+    }
+
+    function isNoiseLine(s){
+        var t = s.trim();
+        if(!t || t.length < 2) return true;
+        if(/^\d+\s*[\.\)]?\s*$/.test(t)) return true;   /* standalone "16" or "16." */
+        if(/^quizlet\.com/i.test(t)) return true;
+        if(/^https?:\/\//i.test(t)) return true;
+        if(/^(Terms in this set|Lernset|Created by|Erstellt von)/i.test(t)) return true;
         return false;
     }
 
-    function processPDFLines(rawPageResults, filename){
-        /* rawPageResults is an array of {lines, colX} objects (one per page) */
-        var hasColumns = rawPageResults.some(function(r){ return r.colX !== null; });
+    function processPDFLines(allPageLines, filename){
+        /* Flatten all pages into one array */
+        var raw = [];
+        allPageLines.forEach(function(pl){ raw = raw.concat(pl); });
 
-        var pairs = [];
+        /* Basic noise filter – keep card numbers for now (needed for Strategy A) */
+        var lines = raw.filter(function(l){ return !isNoiseLine(l); });
 
-        if(hasColumns){
-            /* TWO-COLUMN MODE: accumulate multi-line cells */
-            var termBuf = '', defBuf = '';
-            rawPageResults.forEach(function(page){
-                page.lines.forEach(function(ln){
-                    var l = cleanSeg(ln.left);
-                    var r = cleanSeg(ln.right);
-                    if(isNoise(l) && isNoise(r)) return; /* skip header/footer rows */
+        if(lines.length < 3){
+            setStatus('error', 'Zu wenig Text erkannt. Ist das eine Quizlet-PDF?');
+            return;
+        }
 
-                    if(l && r){
-                        /* Both columns have content → new card starts here.
-                           Save previous buffers if valid. */
-                        if(termBuf && defBuf) pairs.push({term:termBuf, def:defBuf});
-                        termBuf = l; defBuf = r;
-                    } else if(!l && r){
-                        /* Only right column → continuation of definition */
-                        if(defBuf) defBuf += ' ' + r; else defBuf = r;
-                    } else if(l && !r){
-                        /* Only left column → could be continuation of term or new entry */
-                        if(termBuf && defBuf){
-                            /* previous card complete; this might be a new term */
-                            pairs.push({term:termBuf, def:defBuf});
-                            termBuf = l; defBuf = '';
-                        } else {
-                            if(termBuf) termBuf += ' ' + l; else termBuf = l;
-                        }
+        var pairs = null;
+
+        /* ── Strategy A: numbered card boundaries ("5 . term \t def" or "5 . term" / def-next-line) ── */
+        var numIdx = [];
+        lines.forEach(function(l, i){
+            if(/^\d+\s*[\.\)]\s+\S/.test(l)) numIdx.push(i);
+        });
+        if(numIdx.length >= 2){
+            pairs = [];
+            numIdx.forEach(function(si, ni){
+                var ei = ni+1 < numIdx.length ? numIdx[ni+1] : lines.length;
+                var firstLine = stripCardNum(lines[si]);
+                var restLines = lines.slice(si+1, ei)
+                    .filter(function(l){ return !isNoiseLine(l); })
+                    .map(stripCardNum).join(' ').trim();
+
+                /* First line may contain TAB → term left of tab, def right + rest */
+                var ti = firstLine.indexOf('\t');
+                if(ti >= 0){
+                    var term = firstLine.slice(0, ti).trim();
+                    var def  = (firstLine.slice(ti+1) + ' ' + restLines).trim();
+                    if(term && def) pairs.push({term: term, def: def});
+                } else if(firstLine && restLines){
+                    pairs.push({term: firstLine, def: restLines});
+                } else if(firstLine && !restLines){
+                    /* definition missing – skip (probably a header line) */
+                }
+            });
+            if(pairs.length < 2) pairs = null;
+        }
+
+        /* ── Strategy B: TAB-separated two-column layout (no card numbers) ── */
+        if(!pairs){
+            var stripped = lines.map(stripCardNum);
+            var tabCount = stripped.filter(function(l){ return l.indexOf('\t') >= 0; }).length;
+            if(tabCount >= 2){
+                pairs = [];
+                var tTerm = '', tDef = '';
+                stripped.forEach(function(l){
+                    if(isNoiseLine(l)) return;
+                    var ti = l.indexOf('\t');
+                    if(ti >= 0){
+                        if(tTerm && tDef) pairs.push({term: tTerm, def: tDef});
+                        tTerm = l.slice(0, ti).trim();
+                        tDef  = l.slice(ti+1).trim();
+                    } else if(tTerm){
+                        /* continuation of definition */
+                        tDef = tDef ? tDef + ' ' + l : l;
                     }
                 });
-            });
-            if(termBuf && defBuf) pairs.push({term:termBuf, def:defBuf});
-        } else {
-            /* ONE-COLUMN MODE: alternating lines, skip noise */
-            var clean = [];
-            rawPageResults.forEach(function(page){
-                page.lines.forEach(function(ln){
-                    var s = cleanSeg(ln.left);
-                    if(!isNoise(s)) clean.push(s);
-                });
-            });
-            for(var i=0; i+1<clean.length; i+=2){
-                pairs.push({term:clean[i], def:clean[i+1]});
+                if(tTerm && tDef) pairs.push({term: tTerm, def: tDef});
+                if(pairs.length < 2) pairs = null;
             }
         }
 
-        /* Final cleanup: strip leftover number prefixes from both sides */
-        pairs = pairs.map(function(p){
-            return {
-                term: cleanSeg(p.term).replace(/^\d+[\.\)]\s*/,'').trim(),
-                def:  cleanSeg(p.def).replace(/^\d+[\.\)]\s*/,'').trim()
-            };
-        }).filter(function(p){ return p.term.length>1 && p.def.length>1; });
+        /* ── Strategy C: alternating lines fallback ── */
+        if(!pairs){
+            var clean = lines.map(stripCardNum)
+                .filter(function(l){ return !isNoiseLine(l) && !/^\d+$/.test(l.trim()); });
+            pairs = [];
+            for(var i=0; i+1<clean.length; i+=2){
+                pairs.push({
+                    term: clean[i].replace(/\t/g,' ').trim(),
+                    def:  clean[i+1].replace(/\t/g,' ').trim()
+                });
+            }
+            if(pairs.length < 2) pairs = null;
+        }
 
-        if(pairs.length < 2){
-            setStatus('error', 'Keine Vokabelpaare erkannt. Bitte prüfe ob es ein Quizlet-Vokabel-Set ist.');
+        if(!pairs || pairs.length < 2){
+            setStatus('error', 'Keine Vokabelpaare erkannt. Bitte prüfe ob es ein Quizlet-Lernset ist.');
             return;
         }
+
+        /* Final cleanup: de-hyphenate + strip any leftover numbers + remove fragments */
+        pairs = pairs.map(function(p){
+            return {
+                term: dehyphen(stripCardNum(p.term)).trim(),
+                def:  dehyphen(stripCardNum(p.def)).trim()
+            };
+        }).filter(function(p){ return p.term.length > 1 && p.def.length > 1; });
+
         buildQuestionsFromPairs(pairs);
         setStatus('success', '✓ ' + pairs.length + ' Vokabeln aus „' + filename + '" importiert!');
     }
